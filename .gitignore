@@ -1,0 +1,7 @@
+ttc_env/
+__pycache__/
+*.pyc
+*.pyo
+*.log
+*.tmp
+.ipynb_checkpoints/
