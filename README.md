@@ -1,57 +1,182 @@
-# TTC Project (Time-to-Collision Dashboard)
+# Adaptive Collision Risk Prediction System
 
-This project demonstrates a simple collision risk monitoring dashboard using Streamlit, a pre-trained ML model, and live telemetry data.
+## Time-to-Collision (TTC) Monitoring Dashboard
 
-## What’s Included
+This project implements a real-time collision risk monitoring system based on the **Time-to-Collision (TTC)** safety metric.
+The system integrates simulated or live telemetry data, a machine-learning risk classifier, and a Streamlit-based monitoring dashboard.
 
-- `dashboard.py`: Streamlit dashboard that reads `live_data.txt` and displays TTC risk stats.
-- `serial_simulator.py`: Generates simulated live data into `live_data.txt`.
-- `serial_reader.py`: Reads serial data from a device (e.g., ESP32) on `COM3`.
-- `ml_model.pkl`: Pre-trained scikit-learn model used by the dashboard.
-- `ttc_dataset.csv`: Dataset generated during model training.
-- `ml_work.ipynb`: Notebook used to create and evaluate the model.
+The objective is to demonstrate predictive collision warning logic that can be later integrated with embedded hardware (ESP32-based sensing system).
 
-## Setup
+---
 
-1. Create and activate a Python environment (recommended):
+## Project Features
+
+* Real-time TTC risk visualization dashboard
+* Live telemetry data simulation for testing
+* Serial data acquisition support for embedded hardware
+* Machine-learning-based risk classification
+* Continuous session logging for dataset generation
+* Modular Python architecture for easy hardware integration
+
+---
+
+## Project Components
+
+| File                         | Description                                          |
+| ---------------------------- | ---------------------------------------------------- |
+| `PYTHON/dashboard.py`        | Streamlit monitoring dashboard for TTC visualization |
+| `PYTHON/serial_simulator.py` | Generates simulated telemetry data into log file     |
+| `PYTHON/serial_reader.py`    | Reads real serial data from ESP32 or other device    |
+| `PYTHON/ml_model.pkl`        | Pre-trained machine learning model                   |
+| `DATASET/ttc_dataset.csv`    | Dataset used during model training                   |
+| `PYTHON/ml_work.ipynb`       | Notebook for model training and evaluation           |
+| `LOGS/live_data.txt`         | Real-time telemetry log file                         |
+
+---
+
+## System Workflow
+
+Telemetry Source → Data Logging → ML Risk Classification → Streamlit Dashboard Visualization
+
+The dashboard continuously reads telemetry data and updates:
+
+* TTC gauge
+* Risk classification status
+* Distance and velocity trends
+* Session statistics
+
+---
+
+## Environment Setup
+
+Create and activate a Python virtual environment:
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+python -m venv ttc_env
+.\ttc_env\Scripts\Activate.ps1
 ```
 
-2. Install dependencies:
+Install project dependencies:
 
 ```powershell
 pip install -r requirements.txt
 ```
 
-## Running the Dashboard (Simulated Data)
+---
 
-1. Start the data simulator in a separate terminal:
+## Running the Dashboard (Simulation Mode)
+
+Open **two terminals**.
+
+### Terminal 1 — Start Telemetry Simulator
 
 ```powershell
+cd PYTHON
 python serial_simulator.py
 ```
 
-2. Launch Streamlit:
+This process continuously writes simulated telemetry data to:
 
-```powershell
-streamlit run dashboard.py
+```
+LOGS/live_data.txt
 ```
 
-## Running with Real Serial Data
+---
 
-1. Update `serial_reader.py` to use the correct COM port.
-2. Run it:
+### Terminal 2 — Launch Monitoring Dashboard
 
 ```powershell
-python serial_reader.py
+streamlit run PYTHON/dashboard.py
 ```
 
-3. Launch the Streamlit dashboard in a separate terminal.
+After startup, open the local web URL displayed in the terminal:
 
-## Notes
+```
+http://localhost:8501
+```
 
-- The dashboard expects `live_data.txt` to be in the same folder as `dashboard.py`.
-- The simulator overwrites `live_data.txt` at ~3Hz.
+The dashboard will begin updating in real time.
+
+---
+
+## Running with Real Hardware (Serial Mode)
+
+1. Connect the embedded device (e.g., ESP32) via USB.
+2. Update the serial port inside:
+
+```
+PYTHON/serial_reader.py
+```
+
+Example:
+
+```python
+ser = serial.Serial("COM3", 115200, timeout=1)
+```
+
+3. Start serial data acquisition:
+
+```powershell
+python PYTHON/serial_reader.py
+```
+
+4. Launch the dashboard in a separate terminal:
+
+```powershell
+streamlit run PYTHON/dashboard.py
+```
+
+---
+
+## Important Notes
+
+* The dashboard expects telemetry log file at:
+
+```
+LOGS/live_data.txt
+```
+
+* The simulator overwrites the file periodically to emulate live streaming.
+* Real hardware mode requires continuous serial data transmission.
+* This dashboard is part of a larger embedded safety prototype currently under development.
+
+---
+
+## Current Development Status
+
+* Dashboard visualization module — Implemented
+* Telemetry simulation framework — Implemented
+* Serial communication module — Implemented
+* Embedded firmware integration — In progress
+* Machine learning optimisation — In progress
+* Experimental validation — Pending
+
+---
+
+## Technology Stack
+
+* Python
+* Streamlit
+* NumPy / Pandas
+* Scikit-learn
+* PySerial
+* Embedded IoT (ESP32 — integration stage)
+
+---
+
+## Intended Applications
+
+* Forward collision warning systems
+* Smart parking assistance
+* Autonomous robot safety
+* Industrial vehicle monitoring
+* Driver behaviour research
+
+---
+
+## Author
+
+Undergraduate Engineering Project
+Automotive Safety and Embedded Systems Domain
+
+---
