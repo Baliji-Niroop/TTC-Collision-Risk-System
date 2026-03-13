@@ -1,5 +1,7 @@
-streamlit
+pyserial
 pandas
 numpy
-joblib
+streamlit
 scikit-learn
+joblib
+plotly
