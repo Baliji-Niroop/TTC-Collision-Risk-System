@@ -40,10 +40,13 @@ BASE_DIR = Path(__file__).resolve().parent
 ROOT_DIR = BASE_DIR.parent
 LOG_DIR  = ROOT_DIR / "LOGS"
 
+# Ensure the LOGS directory exists before writing
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
 # LIVE_FILE is overwritten each tick so the dashboard always reads the latest.
 # LOG_FILE_TPL is used to generate a unique session CSV filename on exit.
 LIVE_FILE    = LOG_DIR / "live_data.txt"
-LOG_FILE_TPL = LOG_DIR / "session_{}.csv"
+LOG_FILE_TPL = "session_{}.csv"
 
 # Column names for the session CSV export
 COLUMNS = [
@@ -108,7 +111,7 @@ def main():
 
     # Generate a unique session filename using the current timestamp
     session_ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_file = LOG_FILE_TPL.format(session_ts)
+    log_file = LOG_DIR / LOG_FILE_TPL.format(session_ts)
     session_data = []       # Accumulates all parsed rows for the session CSV
 
     print(f"\nConnecting to {args.port} at {args.baud} baud ...")

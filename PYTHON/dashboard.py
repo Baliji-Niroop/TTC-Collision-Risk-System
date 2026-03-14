@@ -286,7 +286,7 @@ def parse_csv_line(line: str):
     """
     try:
         parts = [p.strip() for p in line.split(",")]
-        if len(parts) < 7:
+        if len(parts) != 7:
             return None
         return {
             "distance_cm": float(parts[1]),
@@ -368,10 +368,25 @@ def ml_predict(row: dict) -> int:
         spd       = row["speed_kmh"]
         ttc       = row["ttc_basic"]
         close_vel = d_m / max(ttc, 0.1)     # Approximate closing velocity (m/s)
-        features  = pd.DataFrame(
-            [[spd, d_m, close_vel, ttc, 0]],
-            columns=["speed", "distance", "closing_vel", "ttc", "road"],
-        )
+
+        feature_dict = {
+            "speed": spd,
+            "distance": d_m,
+            "closing_vel": close_vel,
+            "ttc": ttc,
+            "road": 0
+        }
+
+        # Align to expected features if stored; else default
+        if hasattr(model, "expected_features"):
+            expected_cols = model.expected_features
+        elif hasattr(model, "feature_names_in_"):
+            expected_cols = list(model.feature_names_in_)
+        else:
+            expected_cols = ["speed", "distance", "closing_vel", "ttc", "road"]
+
+        features = pd.DataFrame([{col: feature_dict.get(col, 0) for col in expected_cols}], columns=expected_cols)
+
         return int(model.predict(features)[0])
     except Exception:
         return row["risk_phys"]
@@ -383,11 +398,12 @@ def ml_predict(row: dict) -> int:
 
 st.sidebar.title("Configuration")
 
+if not _SERIAL_OK:
+    st.sidebar.warning("`pyserial` not installed. 'ESP32 Serial' mode disabled. Run `pip install pyserial`.")
+
 # --- Data source selector ---
 # Available modes depend on what is installed / present on disk.
-_mode_opts = ["Simulator"]
-if DATA_PATH.exists():
-    _mode_opts.append("Live Log")
+_mode_opts = ["Simulator", "Live Log"]
 if _SERIAL_OK:
     _mode_opts.append("ESP32 Serial")
 
@@ -415,17 +431,21 @@ st.sidebar.markdown(f"**Refresh interval:** {REFRESH_SEC} s")
 
 st.sidebar.markdown("---")
 
+auto_refresh = st.sidebar.checkbox("Auto refresh", value=True)
+
 # --- Adjustable TTC thresholds ---
 # These sliders let the user tune what TTC values correspond to each risk
 # level.  Useful for calibrating different driving scenarios (highway vs city).
-st.sidebar.subheader("Risk Thresholds")
+st.sidebar.subheader("Fallback Thresholds (used only when ML not loaded)")
 thresh_warn = st.sidebar.slider(
     "Warning TTC (s)", 1.0, 5.0, 3.0, 0.1,
     help="TTC values below this are classified as WARNING",
+    disabled=(model is not None)
 )
 thresh_crit = st.sidebar.slider(
     "Critical TTC (s)", 0.5, 3.0, 1.5, 0.1,
     help="TTC values below this are classified as CRITICAL",
+    disabled=(model is not None)
 )
 if thresh_crit >= thresh_warn:
     st.sidebar.error("Critical threshold must be less than Warning threshold.")
@@ -701,5 +721,6 @@ st.markdown(
 # ---------------------------------------------------------------------------
 # Auto-refresh: pause briefly then trigger a rerun to fetch the next reading.
 # ---------------------------------------------------------------------------
-time.sleep(REFRESH_SEC)
-st.rerun()
+if auto_refresh:
+    time.sleep(REFRESH_SEC)
+    st.rerun()

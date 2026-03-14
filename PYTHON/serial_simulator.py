@@ -39,6 +39,9 @@ BASE_DIR  = Path(__file__).resolve().parent
 ROOT_DIR  = BASE_DIR.parent
 DATA_FILE = ROOT_DIR / "LOGS" / "live_data.txt"
 
+# Ensure the LOGS directory exists before writing
+DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
+
 # ---------------------------------------------------------------------------
 # Simulation Parameters
 # ---------------------------------------------------------------------------
