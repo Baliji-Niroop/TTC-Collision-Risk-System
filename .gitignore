@@ -1,40 +1,41 @@
-# Python virtual environments
+# ================================================================
+#  TTC Collision Risk Prediction System — .gitignore
+# ================================================================
 
+# ---------- Python virtual environments ----------
 ttc_env/
 .venv/
 env/
 
-# Python cache / compiled files
-
+# ---------- Python cache / compiled files ----------
 __pycache__/
 *.pyc
 *.pyo
 
-# Notebook checkpoints
-
+# ---------- Jupyter notebook checkpoints ----------
 .ipynb_checkpoints/
 
-# Logs and runtime generated data
-
+# ---------- Logs and runtime data ----------
 LOGS/*.csv
 LOGS/live_data.txt
 *.log
 *.tmp
 
-# Streamlit cache and config
-
+# ---------- Streamlit cache and config ----------
 .streamlit/
 
-# OS generated files
-
+# ---------- OS generated files ----------
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# VS Code settings
-
+# ---------- Editor / IDE settings ----------
 .vscode/
+.idea/
+*.swp
+*.swo
 
-# Build / distribution
-
+# ---------- Build / distribution ----------
 build/
 dist/
+*.egg-info/
