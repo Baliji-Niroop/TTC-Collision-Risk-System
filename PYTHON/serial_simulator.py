@@ -33,46 +33,47 @@ def classify_risk(ttc):
     else:
         return 2
 
-print("✅ Serial simulator running")
-print(f"Writing data to: {DATA_FILE}")
-print("Press Ctrl+C to stop\n")
+if __name__ == "__main__":
+    print("✅ Serial simulator running")
+    print(f"Writing data to: {DATA_FILE}")
+    print("Press Ctrl+C to stop\n")
 
-distance_m = INITIAL_DISTANCE_M
-t_ms = 0
+    distance_m = INITIAL_DISTANCE_M
+    t_ms = 0
 
-while True:
+    while True:
 
-    v_ms = CLOSING_SPEED_KMH / 3.6
-    distance_m -= v_ms * LOOP_DT
+        v_ms = CLOSING_SPEED_KMH / 3.6
+        distance_m -= v_ms * LOOP_DT
 
-    if distance_m <= 0.3:
-        distance_m = INITIAL_DISTANCE_M
-        print("🔁 Reset obstacle to 40 m")
+        if distance_m <= 0.3:
+            distance_m = INITIAL_DISTANCE_M
+            print("🔁 Reset obstacle to 40 m")
 
-    distance_cm = distance_m * 100.0
-    v_kmh = CLOSING_SPEED_KMH
+        distance_cm = distance_m * 100.0
+        v_kmh = CLOSING_SPEED_KMH
 
-    ttc_basic = distance_m / v_ms if v_ms > 0.1 else 99.0
-    ttc_ext   = compute_ttc_extended(distance_m, v_ms, DECEL_MS2)
+        ttc_basic = distance_m / v_ms if v_ms > 0.1 else 99.0
+        ttc_ext   = compute_ttc_extended(distance_m, v_ms, DECEL_MS2)
 
-    risk = classify_risk(ttc_basic)
+        risk = classify_risk(ttc_basic)
 
-    conf = round(1.0 - abs(ttc_basic - ttc_ext)/(ttc_basic+0.01)*0.3, 2)
-    conf = max(0.5, min(1.0, conf))
+        conf = round(1.0 - abs(ttc_basic - ttc_ext)/(ttc_basic+0.01)*0.3, 2)
+        conf = max(0.5, min(1.0, conf))
 
-    line = f"{t_ms},{distance_cm:.2f},{v_kmh:.1f},{ttc_basic:.2f},{ttc_ext:.2f},{risk},{conf:.2f}"
+        line = f"{t_ms},{distance_cm:.2f},{v_kmh:.1f},{ttc_basic:.2f},{ttc_ext:.2f},{risk},{conf:.2f}"
 
-    # ─── WRITE FILE ───
-    with open(DATA_FILE, "w") as f:
-        f.write(line)
+        # ─── WRITE FILE ───
+        with open(DATA_FILE, "w") as f:
+            f.write(line)
 
-    labels = ["SAFE", "WARNING", "CRITICAL"]
+        labels = ["SAFE", "WARNING", "CRITICAL"]
 
-    print(
-        f"t={t_ms:6d} ms | dist={distance_cm:6.1f} cm | "
-        f"v={v_kmh:.1f} km/h | TTC={ttc_basic:.2f} s | "
-        f"{labels[risk]} | conf={conf:.2f}"
-    )
+        print(
+            f"t={t_ms:6d} ms | dist={distance_cm:6.1f} cm | "
+            f"v={v_kmh:.1f} km/h | TTC={ttc_basic:.2f} s | "
+            f"{labels[risk]} | conf={conf:.2f}"
+        )
 
-    t_ms += int(LOOP_DT * 1000)
-    time.sleep(LOOP_DT)
+        t_ms += int(LOOP_DT * 1000)
+        time.sleep(LOOP_DT)

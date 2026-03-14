@@ -24,8 +24,9 @@ import streamlit as st
 # PATH CONFIG
 # ──────────────────────────────────────────────────
 BASE_DIR   = Path(__file__).resolve().parent
-MODEL_PATH = BASE_DIR / "MODELS" / "ml_model.pkl"
-DATA_PATH  = BASE_DIR / "LOGS"   / "live_data.txt"
+ROOT_DIR   = BASE_DIR.parent
+MODEL_PATH = ROOT_DIR / "MODELS" / "ml_model.pkl"
+DATA_PATH  = ROOT_DIR / "LOGS"   / "live_data.txt"
 
 # ──────────────────────────────────────────────────
 # CONSTANTS

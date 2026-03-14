@@ -105,7 +105,7 @@ def main():
                     int(parts[5]),
                     float(parts[6]),
                 ]
-            except:
+            except (ValueError, IndexError):
                 continue
 
             session_data.append(row)

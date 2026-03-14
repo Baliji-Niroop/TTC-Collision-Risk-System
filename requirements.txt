@@ -4,4 +4,3 @@ numpy
 streamlit
 scikit-learn
 joblib
-plotly

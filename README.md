@@ -27,9 +27,9 @@ The objective is to demonstrate predictive collision warning logic that can be l
 | `PYTHON/dashboard.py`        | Streamlit monitoring dashboard for TTC visualization |
 | `PYTHON/serial_simulator.py` | Generates simulated telemetry data into log file     |
 | `PYTHON/serial_reader.py`    | Reads real serial data from ESP32 or other device    |
-| `PYTHON/ml_model.pkl`        | Pre-trained machine learning model                   |
+| `MODELS/ml_model.pkl`        | Pre-trained machine learning model                   |
 | `DATASET/ttc_dataset.csv`    | Dataset used during model training                   |
-| `PYTHON/ml_work.ipynb`       | Notebook for model training and evaluation           |
+| `NOTEBOOK/ml_work.ipynb`     | Notebook for model training and evaluation           |
 | `LOGS/live_data.txt`         | Real-time telemetry log file                         |
 
 ---
