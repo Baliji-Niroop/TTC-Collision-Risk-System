@@ -1,7 +1,40 @@
+# Python virtual environments
+
 ttc_env/
-__pycache__/
+.venv/
+env/
+
+# Python cache / compiled files
+
+**pycache**/
 *.pyc
 *.pyo
+
+# Notebook checkpoints
+
+.ipynb_checkpoints/
+
+# Logs and runtime generated data
+
+LOGS/
 *.log
 *.tmp
-.ipynb_checkpoints/
+live_data.txt
+
+# Streamlit cache and config
+
+.streamlit/
+
+# OS generated files
+
+.DS_Store
+Thumbs.db
+
+# VS Code settings
+
+.vscode/
+
+# Build / distribution
+
+build/
+dist/
