@@ -6,7 +6,7 @@ env/
 
 # Python cache / compiled files
 
-**pycache**/
+__pycache__/
 *.pyc
 *.pyo
 
@@ -16,10 +16,10 @@ env/
 
 # Logs and runtime generated data
 
-LOGS/
+LOGS/*.csv
+LOGS/live_data.txt
 *.log
 *.tmp
-live_data.txt
 
 # Streamlit cache and config
 
