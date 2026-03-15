@@ -209,6 +209,8 @@ _STATE_DEFAULTS = {
     "safe_count":     0,        # Cumulative count of SAFE events
     "session_start":  time.time(),
     "log_rows":       [],       # Full event log kept for CSV export
+    "total_readings": 0,        # Cumulative total readings tracker
+    "sum_confidence": 0.0,      # Cumulative sum of confidence tracker
     "sim_d":          8.0,      # Simulator state: current distance (m)
     "sim_v":          1.0,      # Simulator state: current velocity (m/s)
     "sim_t":          0,        # Simulator state: tick counter
@@ -615,6 +617,9 @@ elif risk == 1:
 else:
     st.session_state.safe_count += 1
 
+st.session_state.total_readings += 1
+st.session_state.sum_confidence += round(row["confidence"] * 100, 1)
+
 # Append current values to the rolling chart buffer (oldest entries are
 # dropped once the buffer exceeds MAX_POINTS).
 st.session_state.buffer.append({
@@ -638,6 +643,11 @@ st.session_state.log_rows.append({
     "risk":          RISK_LABELS[risk],
     "confidence_%":  round(row["confidence"] * 100, 1),
 })
+
+# Cap the log_rows to prevent memory leak and execution lag
+MAX_LOG_ROWS = 2000
+if len(st.session_state.log_rows) > MAX_LOG_ROWS:
+    st.session_state.log_rows.pop(0)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -792,15 +802,14 @@ st.markdown("---")
 elapsed  = int(time.time() - st.session_state.session_start)
 h, rem   = divmod(elapsed, 3600)
 m_t, s_t = divmod(rem, 60)
-total    = max(len(st.session_state.log_rows), 1)
-safe_pct = round(
-    sum(1 for r in st.session_state.log_rows if r["risk"] == "SAFE") / total * 100
-)
+total_readings = st.session_state.total_readings
+total_div = max(total_readings, 1)
+safe_pct = round((st.session_state.safe_count / total_div) * 100)
 
 st.subheader("Session Summary")
 s1, s2, s3, s4 = st.columns(4)
 s1.metric("Duration",       f"{h:02d}:{m_t:02d}:{s_t:02d}")
-s2.metric("Total Readings", total)
+s2.metric("Total Readings", total_readings)
 s3.metric("Time Safe",      f"{safe_pct}%")
 s4.metric("Mean TTC",
           f"{df['TTC Basic (s)'].mean():.2f} s" if len(df) > 0 else "—")
@@ -812,8 +821,8 @@ s6.metric("Avg Distance",
 s7.metric("Avg Speed",
           f"{df['Speed (km/h)'].mean():.1f} km/h" if len(df) > 0 else "—")
 s8.metric("Avg Confidence",
-          f"{sum(r['confidence_%'] for r in st.session_state.log_rows) / total:.0f}%"
-          if st.session_state.log_rows else "—")
+          f"{st.session_state.sum_confidence / total_div:.0f}%"
+          if total_readings > 0 else "—")
 
 # --- Footer ---
 st.markdown(
