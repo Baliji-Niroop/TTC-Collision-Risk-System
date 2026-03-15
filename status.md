@@ -15,11 +15,12 @@ A real-time safety monitoring system that measures distance to an obstacle and c
 If TTC < 3 seconds, it warns the user.
 
 ### Core Equation
-```
-TTC = Distance / Speed
+```text
+TTC = D_gap / V_closing
 ```
 
 ### Risk Classification Thresholds
+System gives graduated alerts as TTC crosses 3 s and 1.5 s thresholds:
 - **SAFE:** TTC > 3 seconds
 - **WARNING:** TTC 1.5-3 seconds  
 - **CRITICAL:** TTC < 1.5 seconds
@@ -97,19 +98,18 @@ Sensor (distance + speed)
 - Troubleshooting sections included
 - Code structure documented
 
-### ✅ Phase-4: ML Development (85% Complete)
+### ✅ Phase-4: ML Development (Conceptually Complete)
 
-- Model training completed
-- Dataset generation (synthetic)
-- Feature engineering done
-- Model validation on synthetic data
+- Model training conceptually complete
+- Feature engineering ready
+- **LIMITATION:** Experimentally unvalidated (tested only on synthetic data)
 
-### ✅ Phase-5: Dashboard (80% Complete)
+### ✅ Phase-5: Dashboard (UI Complete)
 
-- Streamlit interface working
+- Streamlit interface UI complete
 - Real-time updates functional
 - Visualization logic complete
-- **LIMITATION:** Only works with simulator (not real sensor yet)
+- **LIMITATION:** Hardware telemetry integration pending (currently simulation-only)
 
 ---
 
@@ -272,6 +272,23 @@ TTC_Project/
 
 ---
 
+## 8.5 PROJECT RISK REGISTER & TARGETS
+
+### Quantitative Targets
+| Metric | Target Value | Current State |
+|--------|--------------|---------------|
+| Target TTC Error | ±0.2 seconds | Untested |
+| Hardware Latency | < 200 ms | Simulation-only |
+| ML Accuracy | ≥ 88% | Synthetic validation only |
+
+### Risk Register
+- **Sensor Noise Risk:** Physical ultrasonic jitter affecting TTC calculations.
+- **Serial Latency Risk:** Delays in baud transmission from ESP32 to Python dashboard.
+- **Hardware Supply Delay:** Pending physical component pipeline.
+- **ML Overfitting Risk:** Training set lacked true environmental noise variances.
+
+---
+
 ## 9. WHAT'S VERIFIED WORKING
 
 ```text
@@ -320,10 +337,10 @@ TTC_Project/
    - Integrate with dashboard
    - Test latency
 
-4. **Integration**
+4. **Hardware Bring-up Sequence (Integration)**
    - Connect hardware to dashboard
-   - Replace simulator with real data
-   - Verify dashboard works with real sensor
+   - Replace simulator stream with real pipeline
+   - Verify dashboard functions exclusively with the real sensor
 
 ### LONG TERM (Final 2-4 Weeks)
 5. **Testing & Validation** (Phase-6)
@@ -408,7 +425,7 @@ You'll see:
 | **Firmware** | ⭐ 0% - Not started |
 | **Testing** | ⭐ 0% - Not started |
 | **Report** | ⭐ 20% - Structure only |
-| **Overall** | **⭐⭐ 40-45%** |
+| **Overall Completion** | **⭐⭐ ~42%** |
 
 ---
 
