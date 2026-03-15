@@ -40,34 +40,47 @@ from pathlib import Path
 # Third-party imports
 # ---------------------------------------------------------------------------
 import pandas as pd
-import numpy as np
 import streamlit as st
 
 # ---------------------------------------------------------------------------
-# Path Configuration
+# Project imports
 # ---------------------------------------------------------------------------
-# BASE_DIR points to the PYTHON/ folder where this script lives.
-# ROOT_DIR is the project root (one level up) — this is where MODELS/ and
-# LOGS/ directories are located.
-BASE_DIR   = Path(__file__).resolve().parent
-ROOT_DIR   = BASE_DIR.parent
-MODEL_PATH = ROOT_DIR / "MODELS" / "ml_model.pkl"
-DATA_PATH  = ROOT_DIR / "LOGS"   / "live_data.txt"
+try:
+    from config import (
+        MODEL_PATH, DATA_PATH, RISK_LABELS, RISK_COLORS,
+        DASHBOARD_CONFIG, RISK_THRESHOLDS, get_risk_class
+    )
+    from logger import get_logger
+    from validators import validate_csv_line
+    from alerts import check_and_alert
+except ImportError as e:
+    # Fallback if modules not found
+    print(f"Warning: Could not import project modules: {e}")
+    from pathlib import Path
+    BASE_DIR = Path(__file__).resolve().parent
+    ROOT_DIR = BASE_DIR.parent
+    MODEL_PATH = ROOT_DIR / "MODELS" / "ml_model.pkl"
+    DATA_PATH = ROOT_DIR / "LOGS" / "live_data.txt"
+    RISK_LABELS = {0: "SAFE", 1: "WARNING", 2: "CRITICAL"}
+    RISK_COLORS = {
+        0: ("SAFE", "#1a7a2e"),
+        1: ("WARNING", "#b36b00"),
+        2: ("CRITICAL", "#b71c1c"),
+    }
+    DASHBOARD_CONFIG = {"max_buffer_points": 120, "refresh_interval_sec": 0.6}
+    RISK_THRESHOLDS = {"critical": 1.5, "warning": 3.0}
+    get_logger = lambda x: None
+    validate_csv_line = lambda x: None
+    check_and_alert = lambda x, y: False
+
+# Logging
+logger = get_logger(__name__) if get_logger else None
 
 # ---------------------------------------------------------------------------
 # Dashboard Constants
 # ---------------------------------------------------------------------------
-MAX_POINTS  = 120       # Number of data points kept in the rolling chart buffer
-REFRESH_SEC = 0.6       # Seconds between each dashboard refresh cycle
-
-# Risk class labels and their corresponding banner colours.
-# Class 0 = Safe, Class 1 = Warning, Class 2 = Critical.
-RISK_LABELS = {0: "SAFE", 1: "WARNING", 2: "CRITICAL"}
-RISK_COLORS = {
-    0: ("SAFE",     "#1a7a2e"),   # Green
-    1: ("WARNING",  "#b36b00"),   # Amber
-    2: ("CRITICAL", "#b71c1c"),   # Red
-}
+MAX_POINTS = DASHBOARD_CONFIG.get("max_buffer_points", 120)
+REFRESH_SEC = DASHBOARD_CONFIG.get("refresh_interval_sec", 0.6)
 
 # ---------------------------------------------------------------------------
 # Streamlit Page Configuration (must be the first Streamlit call)
@@ -162,10 +175,20 @@ def _load_model():
     """Load the pre-trained ML model from disk (cached across reruns)."""
     try:
         import joblib
+        import sklearn
+        _req_ver = "1.7.1"
+        if sklearn.__version__ != _req_ver:
+            st.sidebar.warning(
+                f"⚠️ scikit-learn version mismatch: "
+                f"installed={sklearn.__version__}, pinned={_req_ver}. "
+                "Model predictions may be unreliable. Run: "
+                f"`pip install scikit-learn=={_req_ver}`"
+            )
         if MODEL_PATH.exists():
             return joblib.load(MODEL_PATH)
-    except Exception:
-        pass
+    except Exception as e:
+        if logger:
+            logger.warning(f"ML model load failed: {e}")
     return None
 
 
@@ -275,7 +298,7 @@ def simulate_step() -> dict:
     }
 
 
-def parse_csv_line(line: str):
+def parse_csv_line(line: str) -> dict:
     """
     Parse a single CSV line from the telemetry log or serial stream.
 
@@ -285,10 +308,16 @@ def parse_csv_line(line: str):
     Returns a dict with the parsed values, or None if the line is malformed.
     """
     try:
+        if not line or not isinstance(line, str):
+            return None
+            
         parts = [p.strip() for p in line.split(",")]
         if len(parts) != 7:
+            if logger:
+                logger.debug(f"Invalid field count: {len(parts)} != 7")
             return None
-        return {
+        
+        parsed = {
             "distance_cm": float(parts[1]),
             "speed_kmh":   float(parts[2]),
             "ttc_basic":   float(parts[3]),
@@ -296,7 +325,20 @@ def parse_csv_line(line: str):
             "risk_phys":   int(float(parts[5])),
             "confidence":  float(parts[6]),
         }
-    except (ValueError, IndexError):
+        
+        # Add anomaly detection if available
+        if validate_csv_line:
+            return validate_csv_line(line)
+        
+        return parsed
+        
+    except (ValueError, IndexError) as e:
+        if logger:
+            logger.error(f"Error parsing CSV line: {e}")
+        return None
+    except Exception as e:
+        if logger:
+            logger.error(f"Unexpected error in parse_csv_line: {e}")
         return None
 
 
@@ -324,25 +366,43 @@ def read_log_file():
 def _open_serial(port: str):
     """Open a serial port connection, cached for the Streamlit session."""
     try:
-        return serial.Serial(port, 115200, timeout=1)
-    except Exception:
+        ser = serial.Serial(port, 115200, timeout=1)
+        if logger:
+            logger.info(f"Serial connection opened on {port}")
+        return ser
+    except Exception as e:
+        if logger:
+            logger.error(f"Failed to open serial port {port}: {e}")
         return None
 
 
-def read_serial(port: str):
+def read_serial(port: str) -> dict:
     """
     Read one CSV line from the ESP32 serial port and parse it.
 
     The ESP32 firmware is expected to output comma-separated telemetry at
     115200 baud in the same 7-field format used by parse_csv_line().
+    
+    Returns validated telemetry dict or None if error occurs.
     """
     try:
         ser = _open_serial(port)
         if ser is None or not ser.is_open:
+            if logger:
+                logger.warning("Serial port not open")
             return None
         raw = ser.readline().decode("utf-8", errors="ignore").strip()
+        if not raw:
+            return None
+        
+        # Use validator instead of parse_csv_line for better error handling
+        if validate_csv_line:
+            return validate_csv_line(raw)
         return parse_csv_line(raw)
-    except Exception:
+        
+    except Exception as e:
+        if logger:
+            logger.error(f"Error reading from serial: {e}")
         return None
 
 
@@ -428,6 +488,7 @@ st.sidebar.markdown(
     f"**pyserial:** {'Available' if _SERIAL_OK else 'Not installed'}"
 )
 st.sidebar.markdown(f"**Refresh interval:** {REFRESH_SEC} s")
+_latency_placeholder = st.sidebar.empty()  # Updated after pipeline runs
 
 st.sidebar.markdown("---")
 
@@ -447,9 +508,10 @@ thresh_crit = st.sidebar.slider(
     help="TTC values below this are classified as CRITICAL",
     disabled=(model is not None)
 )
+
 if thresh_crit >= thresh_warn:
     st.sidebar.error("Critical threshold must be less than Warning threshold.")
-    thresh_crit = thresh_warn - 0.5
+    thresh_crit = max(0.5, thresh_warn - 0.1)
 
 st.sidebar.markdown("---")
 
@@ -459,31 +521,58 @@ if st.sidebar.button("Reset Session"):
             del st.session_state[_k]
     st.rerun()
 
+row = None
+_t_fetch_start = time.perf_counter()  # Latency measurement start
+try:
+    if mode == "Simulator":
+        row = simulate_step()
 
-# ═══════════════════════════════════════════════════════════════════════════
-#  FETCH DATA — obtain one telemetry row from the selected source
-# ═══════════════════════════════════════════════════════════════════════════
+    elif mode == "Live Log":
+        row = read_log_file()
+        # Stale data watchdog: warn if file hasn't been updated in >3 seconds
+        if DATA_PATH.exists():
+            _file_age = time.time() - DATA_PATH.stat().st_mtime
+            if _file_age > 3.0:
+                st.warning(
+                    f"⚠️ DATA STALE — last update {_file_age:.0f}s ago. "
+                    "Is `serial_simulator.py` running?"
+                )
+        if row is None:
+            st.warning("Waiting for data in LOGS/live_data.txt …")
+            time.sleep(1)
+            st.rerun()
 
-if mode == "Simulator":
-    row = simulate_step()
+    else:   # ESP32 Serial
+        if serial_port is None:
+            st.error("No serial port selected.")
+            st.stop()
+        row = read_serial(serial_port)
+        if row is None:
+            st.warning("Waiting for ESP32 serial data …")
+            time.sleep(1)
+            st.rerun()
 
-elif mode == "Live Log":
-    row = read_log_file()
-    if row is None:
-        st.warning("Waiting for data in LOGS/live_data.txt …")
-        time.sleep(1)
-        st.rerun()
+except Exception as e:
+    if logger:
+        logger.error(f"Error fetching data: {e}")
+    st.error(f"Error fetching telemetry: {e}")
+    st.stop()
 
-else:   # ESP32 Serial
-    if serial_port is None:
-        st.error("No serial port selected.")
-        st.stop()
-    row = read_serial(serial_port)
-    if row is None:
-        st.warning("Waiting for ESP32 serial data …")
-        time.sleep(1)
-        st.rerun()
+# Validate row data before processing
+if row is None:
+    if logger:
+        logger.warning("Received None row data")
+    st.warning("No valid telemetry data received.")
+    st.stop()
 
+# Validate all required fields
+required_fields = ["ttc_basic", "speed_kmh", "distance_cm", "ttc_ext", "confidence"]
+missing_fields = [f for f in required_fields if f not in row]
+if missing_fields:
+    if logger:
+        logger.error(f"Missing required fields: {missing_fields}")
+    st.error(f"Malformed telemetry data: missing {missing_fields}")
+    st.stop()
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  PROCESS — classify risk and update session statistics
@@ -491,6 +580,22 @@ else:   # ESP32 Serial
 
 risk  = ml_predict(row)
 ttc_b = row["ttc_basic"]
+
+# Update latency display in sidebar
+_t_pipeline_ms = (time.perf_counter() - _t_fetch_start) * 1000
+_latency_placeholder.markdown(f"**Pipeline latency:** {_t_pipeline_ms:.1f} ms")
+
+# Log anomalies if detected
+if row.get("anomaly_flag", False):
+    if logger:
+        logger.warning(f"Anomaly detected in telemetry: {row}")
+    
+# Check for alerts
+try:
+    check_and_alert(risk, row)
+except Exception as e:
+    if logger:
+        logger.error(f"Error in alert system: {e}")
 
 # When the ML model is not available, apply the user-configured thresholds
 # for the physics-based fallback classifier.
@@ -664,7 +769,7 @@ if st.session_state.log_rows:
         return [""] * len(row)
 
     styled_log = log_df.style.apply(_highlight_risk, axis=1)
-    st.dataframe(styled_log, use_container_width=True, height=240)
+    st.dataframe(styled_log, height=240)
 
     # CSV export of the full session log (not just the last 30 rows)
     csv_bytes = (

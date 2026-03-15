@@ -1,207 +1,49 @@
-# Adaptive Collision Risk Prediction System
+# TTC Collision Risk Monitoring System
 
-## Time-to-Collision (TTC) Monitoring Dashboard
-
-This project implements a real-time collision risk monitoring system based on the **Time-to-Collision (TTC)** safety metric.
-The system integrates simulated or live telemetry data, a machine-learning risk classifier, and a Streamlit-based monitoring dashboard.
-
-The objective is to demonstrate predictive collision warning logic that can be later integrated with embedded hardware (ESP32-based sensing system).
-
----
-
-## Project Features
-
-* Real-time TTC risk visualization dashboard
-* Live telemetry data simulation for testing
-* Serial data acquisition support for embedded hardware
-* Machine-learning-based risk classification
-* Continuous session logging for dataset generation
-* Modular Python architecture for easy hardware integration
-
----
+This project is a real-time safety system designed to measure collision risk based on distance and speed. It continuously calculates the Time-to-Collision (TTC) to provide immediate feedback on whether the current approach is safe or poses a risk.
 
 ## Project Structure
 
-```
-TTC_Project/
-│
-├── run_dashboard.bat              One-click launcher (simulator + dashboard + browser)
-├── requirements.txt               Python package dependencies
-├── README.md                      Project documentation
-├── .gitignore                     Git ignore rules
-│
-├── PYTHON/                        Source code
-│   ├── dashboard.py               Streamlit monitoring dashboard
-│   ├── serial_simulator.py        Simulated telemetry data generator
-│   └── serial_reader.py           ESP32 serial data acquisition
-│
-├── MODELS/                        Machine learning
-│   └── ml_model.pkl               Pre-trained Random Forest classifier
-│
-├── DATASET/                       Training data
-│   └── ttc_dataset.csv            Dataset used during model training
-│
-├── NOTEBOOK/                      Research and development
-│   └── ml_work.ipynb              Model training and evaluation notebook
-│
-├── LOGS/                          Runtime data (gitignored)
-│   └── live_data.txt              Real-time telemetry log file
-│
-└── ttc_env/                       Python virtual environment (gitignored)
-```
+The project is organized efficiently to separate source code, models, and runtime logs:
 
----
+* **PYTHON/**: Contains all source code modules for the system.
+  * `dashboard.py`: The Streamlit web interface for visualizing real-time data.
+  * `serial_simulator.py`: A physics-based simulator generating test telemetry.
+  * `serial_reader.py`: Interfaces with physical hardware (e.g., ESP32 sensors).
+  * `config.py`: Centralized configuration attributes.
+  * `validators.py`, `alerts.py`, `analytics.py`, `safety_features.py`, `logger.py`, `utils.py`: Supporting logic and utilities.
+* **MODELS/**: Stores the trained Machine Learning models used for advanced risk validation.
+* **LOGS/**: Auto-generated directory storing live sensor data and system event logs.
 
-## System Workflow
+## Getting Started
 
-```
-Telemetry Source → Data Logging → ML Risk Classification → Dashboard Visualization
-```
-
-The dashboard continuously reads telemetry data and updates:
-
-* TTC gauge
-* Risk classification status
-* Distance and velocity trends
-* Session statistics
-
----
-
-## Quick Start
+To run the application locally, you can use the provided batch script or run the components manually.
 
 ### One-Click Launch
 
-The fastest way to run the entire system:
-
-**Option A — Double-click:**
-> Double-click `run_dashboard.bat` in File Explorer. Done.
-
-**Option B — From VS Code terminal:**
-```powershell
-cmd.exe /c run_dashboard.bat
+Simply run the batch file to start both the simulator and the dashboard:
+```cmd
+run_dashboard.bat
 ```
 
-This automatically:
-1. Activates the virtual environment
-2. Starts the telemetry simulator in a new terminal
-3. Launches the Streamlit dashboard in a new terminal
-4. Opens `http://localhost:8501` in your browser
+### Manual Launch
 
----
+If you prefer to start the processes individually, open two separate terminals. Ensure your virtual environment (`ttc_env`) is activated in both.
 
-## Manual Setup
-
-### Environment Setup
-
-Create and activate a Python virtual environment:
-
-```powershell
-python -m venv ttc_env
-.\ttc_env\Scripts\Activate.ps1
-```
-
-Install project dependencies:
-
-```powershell
-pip install -r requirements.txt
-```
-
----
-
-### Running the Dashboard (Simulation Mode)
-
-Open **two terminals**.
-
-#### Terminal 1 — Start Telemetry Simulator
-
-```powershell
+Terminal 1 (Telemetry Simulator):
+```cmd
 python PYTHON/serial_simulator.py
 ```
 
-This process continuously writes simulated telemetry data to `LOGS/live_data.txt`.
-
-#### Terminal 2 — Launch Monitoring Dashboard
-
-```powershell
+Terminal 2 (Dashboard Interface):
+```cmd
 streamlit run PYTHON/dashboard.py
 ```
 
-After startup, open the local web URL displayed in the terminal:
+After starting the dashboard, navigate your browser to `http://localhost:8501`.
 
-```
-http://localhost:8501
-```
+## Documentation
 
----
-
-### Running with Real Hardware (Serial Mode)
-
-1. Connect the embedded device (e.g., ESP32) via USB.
-2. Update the serial port inside `PYTHON/serial_reader.py`:
-
-```python
-ser = serial.Serial("COM3", 115200, timeout=1)
-```
-
-3. Start serial data acquisition:
-
-```powershell
-python PYTHON/serial_reader.py
-```
-
-4. Launch the dashboard in a separate terminal:
-
-```powershell
-streamlit run PYTHON/dashboard.py
-```
-
----
-
-## Important Notes
-
-* The dashboard expects telemetry log file at `LOGS/live_data.txt`.
-* The simulator overwrites the file periodically to emulate live streaming.
-* Real hardware mode requires continuous serial data transmission.
-* This dashboard is part of a larger embedded safety prototype currently under development.
-
----
-
-## Current Development Status
-
-* Dashboard visualization module — Implemented
-* Telemetry simulation framework — Implemented
-* Serial communication module — Implemented
-* One-click launcher — Implemented
-* Embedded firmware integration — In progress
-* Machine learning optimisation — In progress
-* Experimental validation — Pending
-
----
-
-## Technology Stack
-
-* Python
-* Streamlit
-* NumPy / Pandas
-* Scikit-learn
-* PySerial
-* Embedded IoT (ESP32 — integration stage)
-
----
-
-## Intended Applications
-
-* Forward collision warning systems
-* Smart parking assistance
-* Autonomous robot safety
-* Industrial vehicle monitoring
-* Driver behaviour research
-
----
-
-## Author
-
-Undergraduate Engineering Project
-Automotive Safety and Embedded Systems Domain
-
----
+For further information regarding the system's logic and current progress, please refer to:
+* `understanding.md`: A straightforward explanation of the system's core concepts.
+* `status.md`: The current project checklist and development status.

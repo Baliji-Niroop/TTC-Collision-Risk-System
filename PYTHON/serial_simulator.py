@@ -30,25 +30,28 @@ import time
 import math
 from pathlib import Path
 
-# ---------------------------------------------------------------------------
-# Path Configuration
-# ---------------------------------------------------------------------------
-# This script lives in PYTHON/, so the project root is one level up.
-# The output file is LOGS/live_data.txt, shared with the dashboard.
-BASE_DIR  = Path(__file__).resolve().parent
-ROOT_DIR  = BASE_DIR.parent
-DATA_FILE = ROOT_DIR / "LOGS" / "live_data.txt"
-
-# Ensure the LOGS directory exists before writing
-DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
-
-# ---------------------------------------------------------------------------
-# Simulation Parameters
-# ---------------------------------------------------------------------------
-INITIAL_DISTANCE_M = 40.0       # Starting distance to obstacle (metres)
-CLOSING_SPEED_KMH  = 15.0       # Constant approach speed (km/h)
-DECEL_MS2          = 5.0        # Assumed braking deceleration (m/s^2)
-LOOP_DT            = 0.3        # Time step per simulation tick (seconds)
+# Try to import project modules for enhanced logging
+try:
+    from config import (
+        ROOT_DIR, SIMULATOR_CONFIG, get_risk_class
+    )
+    from logger import get_logger
+    logger = get_logger(__name__)
+    DATA_FILE = ROOT_DIR / "LOGS" / "live_data.txt"
+    INITIAL_DISTANCE_M = SIMULATOR_CONFIG.get("initial_distance_m", 40.0)
+    CLOSING_SPEED_KMH = SIMULATOR_CONFIG.get("closing_speed_kmh", 15.0)
+    DECEL_MS2 = SIMULATOR_CONFIG.get("deceleration_ms2", 5.0)
+    LOOP_DT = SIMULATOR_CONFIG.get("loop_dt", 0.3)
+except ImportError:
+    logger = None
+    BASE_DIR = Path(__file__).resolve().parent
+    ROOT_DIR = BASE_DIR.parent
+    DATA_FILE = ROOT_DIR / "LOGS" / "live_data.txt"
+    INITIAL_DISTANCE_M = 40.0
+    CLOSING_SPEED_KMH = 15.0
+    DECEL_MS2 = 5.0
+    LOOP_DT = 0.3
+    get_risk_class = None
 
 
 def compute_ttc_extended(dist_m, v_ms, a=5.0):
@@ -77,6 +80,10 @@ def classify_risk(ttc):
         1 (WARNING)  : 1.5 s < TTC <= 3.0 s — approaching danger zone
         2 (CRITICAL) : TTC <= 1.5 seconds — collision imminent
     """
+    if get_risk_class:
+        return get_risk_class(ttc)
+    
+    # Fallback logic if config module not imported
     if ttc > 3.0:
         return 0
     elif ttc > 1.5:
@@ -86,55 +93,86 @@ def classify_risk(ttc):
 
 
 if __name__ == "__main__":
+    # Ensure LOGS directory exists
+    DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
+    
     print("Serial simulator running")
     print(f"Output file: {DATA_FILE}")
     print("Press Ctrl+C to stop\n")
+    
+    if logger:
+        logger.info("Serial simulator started")
+        logger.info(f"Output file: {DATA_FILE}")
+        logger.info(f"Config: Initial distance={INITIAL_DISTANCE_M}m, Speed={CLOSING_SPEED_KMH} km/h")
 
     distance_m = INITIAL_DISTANCE_M
     t_ms = 0    # Simulated timestamp in milliseconds
 
-    while True:
-        # Convert closing speed from km/h to m/s for physics calculations
-        v_ms = CLOSING_SPEED_KMH / 3.6
+    try:
+        while True:
+            # Convert closing speed from km/h to m/s for physics calculations
+            v_ms = CLOSING_SPEED_KMH / 3.6
 
-        # Reduce distance by the amount travelled in one time step
-        distance_m -= v_ms * LOOP_DT
+            # Reduce distance by the amount travelled in one time step
+            distance_m -= v_ms * LOOP_DT
 
-        # Near-collision reset: if the vehicle is within 0.3 m of the
-        # obstacle, reset the distance to simulate a fresh approach.
-        if distance_m <= 0.3:
-            distance_m = INITIAL_DISTANCE_M
-            print("[Reset] Obstacle repositioned to 40 m")
+            # Near-collision reset: if the vehicle is within 0.3 m of the
+            # obstacle, reset the distance to simulate a fresh approach.
+            if distance_m <= 0.3:
+                distance_m = INITIAL_DISTANCE_M
+                print("[Reset] Obstacle repositioned to 40 m")
+                if logger:
+                    logger.info("Obstacle reset")
 
-        distance_cm = distance_m * 100.0
-        v_kmh = CLOSING_SPEED_KMH
+            distance_cm = distance_m * 100.0
+            v_kmh = CLOSING_SPEED_KMH
 
-        # Calculate both TTC variants
-        ttc_basic = distance_m / v_ms if v_ms > 0.1 else 99.0
-        ttc_ext   = compute_ttc_extended(distance_m, v_ms, DECEL_MS2)
+            # Calculate both TTC variants
+            ttc_basic = distance_m / v_ms if v_ms > 0.1 else 99.0
+            ttc_ext   = compute_ttc_extended(distance_m, v_ms, DECEL_MS2)
 
-        # Classify risk and compute a synthetic confidence score.
-        # Confidence decreases when the two TTC estimates diverge.
-        risk = classify_risk(ttc_basic)
-        conf = round(1.0 - abs(ttc_basic - ttc_ext) / (ttc_basic + 0.01) * 0.3, 2)
-        conf = max(0.5, min(1.0, conf))
+            # Classify risk and compute a synthetic confidence score.
+            # Confidence decreases when the two TTC estimates diverge.
+            risk = classify_risk(ttc_basic)
+            conf = round(1.0 - abs(ttc_basic - ttc_ext) / (ttc_basic + 0.01) * 0.3, 2)
+            conf = max(0.5, min(1.0, conf))
 
-        # Build the CSV line and write it to the shared log file
-        line = (
-            f"{t_ms},{distance_cm:.2f},{v_kmh:.1f},"
-            f"{ttc_basic:.2f},{ttc_ext:.2f},{risk},{conf:.2f}"
-        )
+            # Build the CSV line and write it to the shared log file
+            line = (
+                f"{t_ms},{distance_cm:.2f},{v_kmh:.1f},"
+                f"{ttc_basic:.2f},{ttc_ext:.2f},{risk},{conf:.2f}"
+            )
 
-        with open(DATA_FILE, "w") as f:
-            f.write(line)
+            try:
+                # Atomic write: write to temp file then rename to avoid
+                # dashboard reading a half-written line (race condition).
+                tmp_file = DATA_FILE.with_suffix(".tmp")
+                with open(tmp_file, "w", encoding="utf-8") as f:
+                    f.write(line)
+                tmp_file.replace(DATA_FILE)
+            except IOError as e:
+                print(f"Error writing to {DATA_FILE}: {e}")
+                if logger:
+                    logger.error(f"Failed to write data file: {e}")
 
-        # Console output for monitoring
-        labels = ["SAFE", "WARNING", "CRITICAL"]
-        print(
-            f"t={t_ms:6d} ms | dist={distance_cm:6.1f} cm | "
-            f"v={v_kmh:.1f} km/h | TTC={ttc_basic:.2f} s | "
-            f"{labels[risk]} | conf={conf:.2f}"
-        )
+            # Console output for monitoring
+            labels = ["SAFE", "WARNING", "CRITICAL"]
+            output = (
+                f"t={t_ms:6d} ms | dist={distance_cm:6.1f} cm | "
+                f"v={v_kmh:.1f} km/h | TTC={ttc_basic:.2f} s | "
+                f"{labels[risk]} | conf={conf:.2f}"
+            )
+            print(output)
 
-        t_ms += int(LOOP_DT * 1000)
-        time.sleep(LOOP_DT)
+            t_ms += int(LOOP_DT * 1000)
+            time.sleep(LOOP_DT)
+    
+    except KeyboardInterrupt:
+        print("\nSimulator stopped.")
+        if logger:
+            logger.info("Serial simulator stopped by user")
+    
+    except Exception as e:
+        print(f"Error in simulator: {e}")
+        if logger:
+            logger.error(f"Simulator error: {e}")

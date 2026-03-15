@@ -35,13 +35,13 @@ echo.
 
 REM --- Step 2: Launch the telemetry simulator in its own window ---
 echo [2/4] Starting telemetry simulator ...
-start "TTC Simulator" cmd /k "cd /d "%~dp0" && call ttc_env\Scripts\activate.bat && python PYTHON\serial_simulator.py"
+start "TTC Simulator" cmd /k "cd /d ""%~dp0"" && call ttc_env\Scripts\activate.bat && python PYTHON\serial_simulator.py"
 echo       Simulator running in a separate window.
 echo.
 
 REM --- Step 3: Launch the Streamlit dashboard in its own window ---
 echo [3/4] Launching Streamlit dashboard ...
-start "TTC Dashboard" cmd /k "cd /d "%~dp0" && call ttc_env\Scripts\activate.bat && streamlit run PYTHON\dashboard.py --server.headless true"
+start "TTC Dashboard" cmd /k "cd /d ""%~dp0"" && call ttc_env\Scripts\activate.bat && streamlit run PYTHON\dashboard.py --server.headless true"
 echo       Dashboard starting in a separate window.
 echo.
 

@@ -2,7 +2,5 @@ pyserial
 pandas
 numpy
 streamlit
-scikit-learn
+scikit-learn==1.7.1
 joblib
-matplotlib
-seaborn
