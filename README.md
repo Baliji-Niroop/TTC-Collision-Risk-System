@@ -46,7 +46,7 @@ This means the project is currently best treated as a software prototype with ha
 ## Repository Layout
 
 ```text
-TTC_Project/
+TTC-PROJECT-FILES/
 ├── README.md
 ├── requirements.txt
 ├── run_dashboard.bat

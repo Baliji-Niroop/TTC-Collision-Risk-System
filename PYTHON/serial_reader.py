@@ -61,6 +61,7 @@ LOG_FILE_TPL = "session_{}.csv"  # Template for timestamped session files
 if LOG_DIR:
     LIVE_FILE = LOG_DIR / "live_data.txt"
 else:
+    LOG_DIR = Path(__file__).parent.parent / "LOGS"
     LIVE_FILE = Path(__file__).parent.parent / "LOGS" / "live_data.txt"
 
 
