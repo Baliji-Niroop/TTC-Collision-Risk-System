@@ -2,13 +2,11 @@
 REM ================================================================
 REM  TTC Collision Risk Dashboard — One-Click Launcher
 REM  Starts the simulator + Streamlit dashboard + opens browser.
-REM  Just double-click this file from anywhere — it auto-navigates
-REM  to the project root using its own location.
+REM  Just double-click this file — it auto-navigates to the
+REM  project root using its own location.
 REM ================================================================
 
 REM --- Navigate to the folder where this .bat file lives ----------
-REM   %~dp0 expands to the drive:\path\ of this script, so the
-REM   user never has to cd manually.
 cd /d "%~dp0"
 
 echo.
@@ -35,13 +33,13 @@ echo.
 
 REM --- Step 2: Launch the telemetry simulator in its own window ---
 echo [2/4] Starting telemetry simulator ...
-start "TTC Simulator" cmd /k "cd /d ""%~dp0"" && call ttc_env\Scripts\activate.bat && python PYTHON\serial_simulator.py"
+start "TTC Simulator" cmd /k "cd /d ""%~dp0"" && call ttc_env\Scripts\activate.bat && python src\serial_simulator.py"
 echo       Simulator running in a separate window.
 echo.
 
 REM --- Step 3: Launch the Streamlit dashboard in its own window ---
 echo [3/4] Launching Streamlit dashboard ...
-start "TTC Dashboard" cmd /k "cd /d ""%~dp0"" && call ttc_env\Scripts\activate.bat && python -m streamlit run PYTHON\dashboard.py --server.headless true"
+start "TTC Dashboard" cmd /k "cd /d ""%~dp0"" && call ttc_env\Scripts\activate.bat && python -m streamlit run src\dashboard.py --server.headless true"
 echo       Dashboard starting in a separate window.
 echo.
 

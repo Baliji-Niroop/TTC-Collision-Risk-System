@@ -1,60 +1,54 @@
 # TTC Collision Risk Monitoring System
 
-This project is a Python-based prototype for monitoring forward-collision risk using Time-to-Collision (TTC). It combines:
+A Python-based prototype for monitoring forward-collision risk using Time-to-Collision (TTC). The system combines distance and closing-speed telemetry, TTC-based physics logic, an optional machine-learning risk model, and a Streamlit dashboard for live visual monitoring.
 
-- distance and closing-speed telemetry,
-- TTC-based physics logic,
-- an optional machine-learning risk model,
-- a Streamlit dashboard for live visual monitoring.
+The system runs in three modes:
 
-The system can run in three practical modes:
+- **Simulated** — fully synthetic, no hardware needed.
+- **Log-driven** — reads the latest telemetry from a shared file.
+- **Live serial** — reads directly from an ESP32 over USB.
 
-- fully simulated, with no hardware required,
-- log-driven, by reading the latest telemetry from a shared file,
-- live serial, by reading directly from an ESP32 over USB.
+## What the project does
 
-## What The Project Does
+For each telemetry update the system estimates how soon a collision would occur if the current approach continues.
 
-For each telemetry update, the system estimates how soon a collision would occur if the current approach continues.
+| Risk level | Condition |
+|------------|-----------|
+| SAFE | TTC above 3.0 s |
+| WARNING | TTC between 1.5 and 3.0 s |
+| CRITICAL | TTC at or below 1.5 s |
 
-- `SAFE`: TTC above 3.0 s
-- `WARNING`: TTC between 1.5 s and 3.0 s
-- `CRITICAL`: TTC at or below 1.5 s
+The dashboard then shows current distance, speed, and TTC; current risk class; rolling trends; session statistics; and event/log information.
 
-The dashboard then shows:
+If a trained ML model is available it is used for risk prediction. Otherwise the dashboard falls back to TTC threshold logic so the system remains usable without the model.
 
-- current distance, speed, and TTC,
-- current risk class,
-- rolling trends,
-- session statistics,
-- event/log information.
-
-If the trained ML model is available, it is used for risk prediction. If not, the dashboard falls back to TTC threshold logic so the system remains usable.
-
-## Current Project State
+## Current project state
 
 The software side is functional for simulation and dashboard monitoring.
 
-- Simulation pipeline: working
-- Dashboard UI: working
-- ML inference: integrated when model file is available
-- Real hardware telemetry: not yet fully validated
-- ESP32-based field testing: still pending
+| Component | Status |
+|-----------|--------|
+| Simulation pipeline | Working |
+| Dashboard UI | Working |
+| ML inference | Integrated (when model file present) |
+| Real hardware telemetry | Not yet validated |
+| ESP32 field testing | Pending |
 
-This means the project is currently best treated as a software prototype with hardware integration support already scaffolded.
+This means the project is currently a software prototype with hardware integration support already scaffolded.
 
-## Repository Layout
+## Repository layout
 
-```text
+```
 TTC-PROJECT-FILES/
 ├── README.md
 ├── requirements.txt
 ├── run_dashboard.bat
-├── status.md
-├── understanding.md
-├── LOGS/
-├── MODELS/
-├── PYTHON/
+├── docs/
+│   ├── understanding.md
+│   ├── status.md
+│   ├── serial_protocol.md
+│   └── integration_status.md
+├── src/
 │   ├── dashboard.py
 │   ├── serial_simulator.py
 │   ├── serial_reader.py
@@ -65,22 +59,24 @@ TTC-PROJECT-FILES/
 │   ├── safety_features.py
 │   ├── utils.py
 │   └── validators.py
+├── MODELS/
+├── LOGS/
 └── ttc_env/
 ```
 
-## Key Files
+## Key files
 
-- `PYTHON/dashboard.py`: Main Streamlit application. Supports Simulator, Live Log, and ESP32 Serial input modes.
-- `PYTHON/serial_simulator.py`: Generates synthetic TTC telemetry and writes it to `LOGS/live_data.txt`.
-- `PYTHON/serial_reader.py`: Reads 7-field serial packets from an ESP32 and writes the latest reading to `LOGS/live_data.txt` while also saving full sessions to CSV.
-- `PYTHON/config.py`: Central configuration for thresholds, serial settings, simulator parameters, and logging.
-- `PYTHON/safety_features.py`: Extra safety logic such as hysteresis filtering, sensor fault detection, velocity sanity checks, and ML-confidence fusion.
-- `MODELS/`: Intended location for the trained model file, typically `ml_model.pkl`.
-- `LOGS/`: Runtime output, including the latest live telemetry file and saved session logs.
+| File | Purpose |
+|------|---------|
+| `src/dashboard.py` | Main Streamlit application. Supports Simulator, Live Log, and ESP32 Serial input modes. |
+| `src/serial_simulator.py` | Generates synthetic TTC telemetry and writes it to `LOGS/live_data.txt`. |
+| `src/serial_reader.py` | Reads 7-field serial packets from an ESP32 and writes the latest reading to `LOGS/live_data.txt` while saving full sessions to CSV. |
+| `src/config.py` | Central configuration for thresholds, serial settings, simulator parameters, and logging. |
+| `src/safety_features.py` | Hysteresis filtering, sensor fault detection, velocity sanity checks, and ML-confidence fusion. |
+| `MODELS/` | Location for the trained model file (`ml_model.pkl`). |
+| `LOGS/` | Runtime output: latest live telemetry file and saved session logs. |
 
-## Data Flow
-
-The project follows this basic pipeline:
+## Data flow
 
 1. Telemetry is produced by either the simulator, the live log file, or an ESP32 serial connection.
 2. The dashboard validates and interprets the incoming values.
@@ -89,7 +85,7 @@ The project follows this basic pipeline:
 
 ## Requirements
 
-The repository already includes a virtual environment folder, but if you need to set up the project yourself, the main dependencies are:
+The main dependencies are:
 
 - `pyserial`
 - `pandas`
@@ -98,171 +94,148 @@ The repository already includes a virtual environment folder, but if you need to
 - `scikit-learn==1.7.1`
 - `joblib`
 
-You can install them with:
+Install with:
 
-```cmd
+```
 pip install -r requirements.txt
 ```
 
 ## Setup
 
-### Option 1: Use the existing virtual environment
+### Option 1 — Use the existing virtual environment
 
-On Windows PowerShell:
+PowerShell:
 
 ```powershell
 .\ttc_env\Scripts\Activate.ps1
 ```
 
-On Command Prompt:
+Command Prompt:
 
 ```cmd
 ttc_env\Scripts\activate.bat
 ```
 
-### Option 2: Create a new virtual environment
+### Option 2 — Create a new virtual environment
 
-```cmd
+```
 python -m venv ttc_env
 ttc_env\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## Running The Project
+## Running the project
 
-### Fastest Start: One-click launcher
+### One-click launcher (fastest)
 
-The simplest way to run the project is:
-
-```cmd
+```
 run_dashboard.bat
 ```
 
-This script:
+This activates the virtual environment, opens the simulator in one terminal, opens the Streamlit dashboard in another, and opens the browser at `http://localhost:8501`.
 
-- activates the virtual environment,
-- opens the simulator in one terminal,
-- opens the Streamlit dashboard in another terminal,
-- opens the browser at `http://localhost:8501`.
-
-Use this mode if you want to see the project working immediately without hardware.
-
-### Manual Run: Simulator + Dashboard
-
-Open two terminals in the project root.
+### Manual run — Simulator plus dashboard
 
 Terminal 1:
 
-```cmd
-python PYTHON\serial_simulator.py
+```
+python src\serial_simulator.py
 ```
 
 Terminal 2:
 
-```cmd
-streamlit run PYTHON\dashboard.py --server.headless true
+```
+streamlit run src\dashboard.py --server.headless true
 ```
 
-Then open:
+Then open `http://localhost:8501`.
 
-```text
-http://localhost:8501
+Inside the dashboard use Simulator mode for in-process synthetic data, or Live Log mode to read from the file updated by `serial_simulator.py`.
+
+### Manual run — ESP32 serial mode
+
+List available ports:
+
+```
+python src\serial_reader.py --list
 ```
 
-Inside the dashboard, use either:
+Start the serial reader:
 
-- `Simulator` mode for in-process synthetic data, or
-- `Live Log` mode if you want the dashboard to read the file being updated by `serial_simulator.py`.
-
-### Manual Run: ESP32 Serial Mode
-
-If you have an ESP32 sending valid telemetry over USB, first list available ports:
-
-```cmd
-python PYTHON\serial_reader.py --list
+```
+python src\serial_reader.py --port COM3
 ```
 
-Then start the serial reader:
+In another terminal start the dashboard:
 
-```cmd
-python PYTHON\serial_reader.py --port COM3
+```
+streamlit run src\dashboard.py --server.headless true
 ```
 
-In another terminal, start the dashboard:
+The dashboard can then use ESP32 Serial mode for direct USB reads or Live Log mode to read the file written by `serial_reader.py`.
 
-```cmd
-streamlit run PYTHON\dashboard.py --server.headless true
+## Telemetry format
+
+Both the simulator and serial reader use a 7-field CSV format:
+
 ```
-
-The dashboard can then use:
-
-- `ESP32 Serial` mode for direct USB reads, if `pyserial` is installed, or
-- `Live Log` mode to read the latest line written by `serial_reader.py`.
-
-## Telemetry Format
-
-The simulator and serial reader both use the same 7-field comma-separated format:
-
-```text
 timestamp_ms,distance_cm,speed_kmh,ttc_basic,ttc_ext,risk_class,confidence
 ```
 
-Meaning:
-
-- `timestamp_ms`: sample timestamp in milliseconds
-- `distance_cm`: measured obstacle distance in centimeters
-- `speed_kmh`: closing speed in km/h
-- `ttc_basic`: TTC from the constant-speed model
-- `ttc_ext`: TTC from the extended deceleration-aware model
-- `risk_class`: `0 = SAFE`, `1 = WARNING`, `2 = CRITICAL`
-- `confidence`: confidence score used for display/monitoring
+| Position | Field | Unit | Meaning |
+|----------|-------|------|---------|
+| 1 | `timestamp_ms` | ms | Sample timestamp |
+| 2 | `distance_cm` | cm | Current obstacle distance |
+| 3 | `speed_kmh` | km/h | Closing speed |
+| 4 | `ttc_basic` | s | TTC using constant-speed model |
+| 5 | `ttc_ext` | s | TTC using deceleration-aware model |
+| 6 | `risk_class` | — | `0` = SAFE, `1` = WARNING, `2` = CRITICAL |
+| 7 | `confidence` | 0–1 | Confidence score |
 
 ## Configuration
 
-Most important settings live in `PYTHON/config.py`, including:
+Most settings live in `src/config.py`:
 
 - TTC risk thresholds
-- dashboard refresh interval
-- serial baud rate and timeout
-- simulator starting distance and loop timing
-- logging behavior
+- Dashboard refresh interval
+- Serial baud rate and timeout
+- Simulator starting distance and loop timing
+- Logging behaviour
 
-Default TTC thresholds are:
+Default thresholds: CRITICAL ≤ 1.5 s, WARNING ≤ 3.0 s, SAFE > 3.0 s.
 
-- `CRITICAL`: `<= 1.5 s`
-- `WARNING`: `<= 3.0 s`
-- `SAFE`: `> 3.0 s`
+## Logs and outputs
 
-## Logs And Outputs
+Runtime files are written to `LOGS/`:
 
-The project writes runtime files to `LOGS/`.
+| File | Description |
+|------|-------------|
+| `LOGS/live_data.txt` | Latest telemetry sample for dashboard polling |
+| `LOGS/session_*.csv` | Full session exports created by `serial_reader.py` |
+| `LOGS/ttc_system.log` | Application log file when logging is enabled |
 
-- `LOGS/live_data.txt`: latest telemetry sample for dashboard polling
-- `LOGS/session_*.csv`: full session exports created by `serial_reader.py`
-- `LOGS/ttc_system.log`: application log file when logging is enabled
-
-## Notes And Limitations
+## Notes and limitations
 
 - The dashboard is usable without hardware.
 - The ML path depends on a compatible model file being present in `MODELS/`.
 - `scikit-learn==1.7.1` is pinned because the model loader checks for that version.
 - Real-world validation, sensor calibration, and firmware-side filtering are still pending.
-- Hardware integration support exists in the code, but full system verification depends on actual ESP32 and sensor testing.
+- Hardware integration support exists in the code but full system verification depends on actual ESP32 and sensor testing.
 
-## Additional Documentation
+## Further documentation
 
-- `understanding.md`: simple explanation of the TTC logic and system flow
-- `status.md`: current project progress, blockers, and roadmap tracking
-- `SERIAL_PROTOCOL.md`: exact telemetry packet format expected by the Python side
-- `INTEGRATION_STATUS.md`: hardware-integration checklist and current handoff status
+| Document | Description |
+|----------|-------------|
+| `docs/understanding.md` | Simple explanation of TTC logic and system flow |
+| `docs/status.md` | Current project progress, blockers, and roadmap |
+| `docs/serial_protocol.md` | Exact telemetry packet format expected by the Python side |
+| `docs/integration_status.md` | Hardware-integration checklist and handoff status |
 
-## Recommended First Run
-
-If you are opening this repository for the first time, use this order:
+## Recommended first run
 
 1. Activate the environment.
 2. Run `run_dashboard.bat`.
 3. Confirm the dashboard opens in the browser.
-4. Read `understanding.md` for the system logic.
-5. Read `status.md` for current progress and remaining hardware work.
-6. Use `SERIAL_PROTOCOL.md` before writing or changing ESP32 firmware.
+4. Read `docs/understanding.md` for the system logic.
+5. Read `docs/status.md` for current progress and remaining hardware work.
+6. Use `docs/serial_protocol.md` before writing or changing ESP32 firmware.
