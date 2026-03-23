@@ -1,50 +1,30 @@
 """
-TTC Collision Risk Monitoring Dashboard
-========================================
-Adaptive Collision Risk Prediction System
+dashboard.py
+Main Streamlit application for the TTC Collision Risk system.
 
-This is the main dashboard application for real-time TTC (Time-to-Collision)
-monitoring. It visualises live or simulated telemetry data alongside an ML-based
-risk classifier to provide a continuous overview of forward-collision risk.
+Displays live telemetry from three possible sources:
+  - Simulator (in-process synthetic data, no hardware needed)
+  - Live Log  (reads latest line from LOGS/live_data.txt)
+  - ESP32 Serial (direct USB serial, requires pyserial)
 
-Data Sources (selectable from the sidebar):
-  - Simulator    : Physics-based synthetic data generated in-process.
-                   No hardware or external files needed.
-  - Live Log     : Reads the most recent line from LOGS/live_data.txt,
-                   which is written by serial_simulator.py or serial_reader.py.
-  - ESP32 Serial : Reads directly from a USB serial port (requires pyserial).
-                   Used when an ESP32 with an ultrasonic sensor is connected.
+Each cycle (~0.6s) fetches a telemetry row, runs it through the
+ML model (or falls back to physics-based TTC thresholds), and
+updates the charts, metrics, event log and session statistics.
 
-How it works:
-  1. Each refresh cycle (~0.6 s) a new telemetry row is obtained from the
-     selected data source.
-  2. The row is passed through the ML model (Random Forest) to predict a
-     risk class (0 = Safe, 1 = Warning, 2 = Critical).  If the model is
-     unavailable, a physics-based fallback using TTC thresholds is used.
-  3. Metrics, trend charts, event log, and session statistics are updated.
-
-Usage:
-    pip install streamlit pandas numpy joblib scikit-learn
-    streamlit run dashboard.py
+Run with:  streamlit run dashboard.py
 """
 
-# ---------------------------------------------------------------------------
-# Standard library imports
-# ---------------------------------------------------------------------------
+# Standard library
 import time
 import math
 import random
 from pathlib import Path
 
-# ---------------------------------------------------------------------------
-# Third-party imports
-# ---------------------------------------------------------------------------
+# Third-party
 import pandas as pd
 import streamlit as st
 
-# ---------------------------------------------------------------------------
 # Project imports
-# ---------------------------------------------------------------------------
 try:
     from config import (
         MODEL_PATH, DATA_PATH, RISK_LABELS, RISK_COLORS,
@@ -76,27 +56,18 @@ except ImportError as e:
 # Logging
 logger = get_logger(__name__) if get_logger else None
 
-# ---------------------------------------------------------------------------
-# Dashboard Constants
-# ---------------------------------------------------------------------------
+# Dashboard constants
 MAX_POINTS = DASHBOARD_CONFIG.get("max_buffer_points", 120)
 REFRESH_SEC = DASHBOARD_CONFIG.get("refresh_interval_sec", 0.6)
 
-# ---------------------------------------------------------------------------
-# Streamlit Page Configuration (must be the first Streamlit call)
-# ---------------------------------------------------------------------------
+# Page config (must be first Streamlit call)
 st.set_page_config(
     page_title="TTC Collision Risk Dashboard",
     layout="wide",
     page_icon="🚗",
 )
 
-# ---------------------------------------------------------------------------
-# Custom CSS
-# ---------------------------------------------------------------------------
-# Injects styling for metric cards, risk-banner animations, chart containers,
-# sidebar adjustments, and footer branding.  All visual refinements live here
-# so the Python logic stays free of inline style strings.
+# Custom CSS — metric cards, risk banners, charts, sidebar, footer
 st.markdown("""
 <style>
 /* ---------- Risk banner pulse animations ---------- */
@@ -117,13 +88,18 @@ div[data-testid="stMetric"] {
     background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
     border: 1px solid rgba(128,128,128,0.14);
     border-radius: 10px;
-    padding: 12px 16px;
+    padding: 12px 14px;
     box-shadow: 0 1px 6px rgba(0,0,0,0.05);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 div[data-testid="stMetric"]:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 14px rgba(0,0,0,0.09);
+}
+div[data-testid="stMetric"] [data-testid="stMetricValue"] {
+    font-size: clamp(1.2rem, 2vw, 1.8rem);
+    white-space: nowrap;
+    overflow: visible;
 }
 
 /* ---------- Chart containers ---------- */
@@ -149,11 +125,7 @@ section[data-testid="stSidebar"] > div { padding-top: 1.4rem; }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------------------------------------------------------------------
-# Optional Imports (pyserial for hardware, joblib for ML model)
-# ---------------------------------------------------------------------------
-# pyserial is only needed when reading from an actual ESP32 over USB.
-# If it is not installed, the "ESP32 Serial" option is hidden from the sidebar.
+# pyserial — only needed for ESP32 USB mode
 try:
     import serial
     import serial.tools.list_ports
@@ -162,14 +134,8 @@ except ImportError:
     _SERIAL_OK = False
 
 
-# ---------------------------------------------------------------------------
-# ML Model Loading
-# ---------------------------------------------------------------------------
-# The model is a scikit-learn Random Forest classifier trained on TTC features
-# (speed, distance, closing velocity, ttc, road type).  It is loaded once and
-# cached for the lifetime of the Streamlit process.  If the .pkl file is
-# missing or cannot be loaded, the dashboard falls back to a simple
-# physics-based threshold classifier instead.
+# ML model — loaded once, cached across reruns.
+# Falls back to physics-based thresholds if the pkl is missing.
 @st.cache_resource(show_spinner=False)
 def _load_model():
     """Load the pre-trained ML model from disk (cached across reruns)."""
@@ -194,12 +160,7 @@ def _load_model():
 
 model = _load_model()
 
-# ---------------------------------------------------------------------------
-# Session State Initialisation
-# ---------------------------------------------------------------------------
-# Streamlit reruns the entire script on every refresh.  Session state preserves
-# values across reruns so that rolling buffers, counters, and simulator
-# variables persist throughout a session.
+# Session state — persists across Streamlit reruns
 _STATE_DEFAULTS = {
     "buffer":         [],       # Rolling list of dicts for trend charts
     "min_ttc":        99.0,     # Lowest TTC observed this session (seconds)
@@ -220,9 +181,7 @@ for _k, _v in _STATE_DEFAULTS.items():
         st.session_state[_k] = _v
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-#  DATA SOURCE FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════════════
+# --- Data source functions ---
 
 def simulate_step() -> dict:
     """
@@ -408,9 +367,7 @@ def read_serial(port: str) -> dict:
         return None
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-#  ML PREDICTION
-# ═══════════════════════════════════════════════════════════════════════════
+# --- ML prediction ---
 
 def ml_predict(row: dict) -> int:
     """
@@ -454,9 +411,7 @@ def ml_predict(row: dict) -> int:
         return row["risk_phys"]
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-#  SIDEBAR — Configuration & Status
-# ═══════════════════════════════════════════════════════════════════════════
+# --- Sidebar ---
 
 st.sidebar.title("Configuration")
 
@@ -576,9 +531,7 @@ if missing_fields:
     st.error(f"Malformed telemetry data: missing {missing_fields}")
     st.stop()
 
-# ═══════════════════════════════════════════════════════════════════════════
-#  PROCESS — classify risk and update session statistics
-# ═══════════════════════════════════════════════════════════════════════════
+# --- Process: classify risk, update session stats ---
 
 risk  = ml_predict(row)
 ttc_b = row["ttc_basic"]
@@ -636,12 +589,12 @@ df = pd.DataFrame(st.session_state.buffer)
 # Append to the full event log (used for the data table and CSV export)
 st.session_state.log_rows.append({
     "time":          time.strftime("%H:%M:%S"),
-    "ttc_basic_s":   ttc_b,
-    "ttc_ext_s":     row["ttc_ext"],
-    "distance_m":    round(row["distance_cm"] / 100, 3),
-    "speed_kmh":     row["speed_kmh"],
+    "ttc_basic_s":   round(ttc_b, 2),
+    "ttc_ext_s":     round(row["ttc_ext"], 2),
+    "distance_m":    round(row["distance_cm"] / 100, 2),
+    "speed_kmh":     round(row["speed_kmh"], 1),
     "risk":          RISK_LABELS[risk],
-    "confidence_%":  round(row["confidence"] * 100, 1),
+    "confidence_%":  round(row["confidence"] * 100, 0),
 })
 
 # Cap the log_rows to prevent memory leak and execution lag
@@ -650,9 +603,7 @@ if len(st.session_state.log_rows) > MAX_LOG_ROWS:
     st.session_state.log_rows.pop(0)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-#  RENDER — Dashboard Layout
-# ═══════════════════════════════════════════════════════════════════════════
+# --- Dashboard layout ---
 
 # --- Header ---
 st.title("TTC Collision Risk Dashboard")
@@ -683,7 +634,7 @@ c1.metric("TTC Basic",    f"{ttc_b:.2f} s",
           delta=f"{ttc_b - prev_ttc:.2f} s" if prev_ttc is not None else None)
 c2.metric("TTC Extended", f"{row['ttc_ext']:.2f} s")
 c3.metric("Distance",     f"{row['distance_cm'] / 100:.2f} m")
-c4.metric("Speed",        f"{row['speed_kmh']:.1f} km/h")
+c4.metric("Speed",        f"{row['speed_kmh']:.1f} km/h" if row['speed_kmh'] < 100 else f"{row['speed_kmh']:.0f} km/h")
 
 st.markdown("---")
 
@@ -778,8 +729,19 @@ if st.session_state.log_rows:
             return ["background-color: rgba(179,107,0,0.10)"] * len(row)
         return [""] * len(row)
 
-    styled_log = log_df.style.apply(_highlight_risk, axis=1)
-    st.dataframe(styled_log, height=240)
+    styled_log = log_df.style.apply(_highlight_risk, axis=1).format({
+        "ttc_basic_s": "{:.2f}",
+        "ttc_ext_s":   "{:.2f}",
+        "distance_m":  "{:.2f}",
+        "speed_kmh":   "{:.1f}",
+        "confidence_%": "{:.0f}",
+    })
+    st.dataframe(
+        styled_log, height=240, use_container_width=True,
+        column_config={
+            "risk": st.column_config.TextColumn("risk", width="medium"),
+        },
+    )
 
     # CSV export of the full session log (not just the last 30 rows)
     csv_bytes = (
@@ -808,7 +770,7 @@ safe_pct = round((st.session_state.safe_count / total_div) * 100)
 
 st.subheader("Session Summary")
 s1, s2, s3, s4 = st.columns(4)
-s1.metric("Duration",       f"{h:02d}:{m_t:02d}:{s_t:02d}")
+s1.metric("Duration",       f"{h}h {m_t:02d}m {s_t:02d}s" if h > 0 else f"{m_t}m {s_t:02d}s")
 s2.metric("Total Readings", total_readings)
 s3.metric("Time Safe",      f"{safe_pct}%")
 s4.metric("Mean TTC",
@@ -832,9 +794,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ---------------------------------------------------------------------------
-# Auto-refresh: pause briefly then trigger a rerun to fetch the next reading.
-# ---------------------------------------------------------------------------
+# Auto-refresh loop
 if auto_refresh:
     time.sleep(REFRESH_SEC)
     st.rerun()

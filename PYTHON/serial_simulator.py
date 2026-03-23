@@ -1,29 +1,15 @@
 """
-Serial Simulator — Simulated ESP32 Telemetry Output
-=====================================================
-This script emulates the data that a real ESP32 sensor module would produce.
-It generates telemetry values (distance, speed, TTC) and writes them to
-LOGS/live_data.txt so that the Streamlit dashboard can read and display
-them in "Live Log" mode.
+serial_simulator.py
+Generates synthetic TTC telemetry and writes it to LOGS/live_data.txt.
 
-How it works:
-  - A virtual obstacle starts at 40 metres and the vehicle approaches at
-    a constant 15 km/h.
-  - On each tick (every 0.3 seconds) the distance is reduced by v * dt.
-  - When the distance reaches 0.3 m (near-collision), the obstacle is
-    reset back to 40 m, simulating a new approach cycle.
-  - Two TTC values are calculated:
-      TTC_basic : assumes constant velocity       → d / v
-      TTC_ext   : assumes constant deceleration   → solved from kinematics
-  - A risk class (0/1/2) is assigned based on TTC thresholds.
-  - The line is written to LOGS/live_data.txt (overwritten each tick).
+Simulates a vehicle approaching an obstacle at 15 km/h, starting from 40m.
+When distance drops to 0.3m (near-collision), the obstacle resets to 40m.
+The dashboard can read this file in Live Log mode.
 
-CSV output format (7 fields, comma-separated):
+Output format (7 CSV fields per line):
     timestamp_ms, distance_cm, speed_kmh, ttc_basic, ttc_ext, risk, confidence
 
-Usage:
-    python serial_simulator.py
-    (then in another terminal: streamlit run dashboard.py, select "Live Log")
+Usage:  python serial_simulator.py
 """
 
 import time

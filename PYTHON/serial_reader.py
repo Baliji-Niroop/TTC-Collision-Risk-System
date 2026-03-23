@@ -1,27 +1,21 @@
 """
-Serial Reader — ESP32 Live Data Acquisition
-=============================================
-This script reads real-time telemetry data from an ESP32 (or compatible
-microcontroller) over a USB serial connection and performs two tasks:
+serial_reader.py
+Reads live telemetry from an ESP32 over USB serial.
 
-  1. Writes the latest reading to LOGS/live_data.txt so that the Streamlit
-     dashboard can display it in "Live Log" mode.
-  2. Accumulates every reading in memory and saves the full session as a
-     timestamped CSV file in LOGS/ when the script is stopped (Ctrl+C).
+Does two things:
+  1. Writes the latest reading to LOGS/live_data.txt for the dashboard.
+  2. Saves the full session as a timestamped CSV when stopped (Ctrl+C).
 
-Expected serial format (7 comma-separated fields per line):
+Expected format: 7 comma-separated fields per line
     timestamp_ms, distance_cm, speed_kmh, ttc_basic, ttc_ext, risk_class, confidence
 
-Command-line usage:
-    python serial_reader.py                    # Auto-detect first available port
-    python serial_reader.py --port COM3        # Specify a port explicitly
-    python serial_reader.py --list             # List all available serial ports
-    python serial_reader.py --baud 9600        # Override baud rate (default 115200)
+Usage:
+    python serial_reader.py                  # auto-detect port
+    python serial_reader.py --port COM3      # specify port
+    python serial_reader.py --list           # list available ports
 """
 
-# ---------------------------------------------------------------------------
 # Imports
-# ---------------------------------------------------------------------------
 import serial
 import serial.tools.list_ports
 import pandas as pd

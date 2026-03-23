@@ -72,9 +72,9 @@ The remaining work is mainly on the hardware and firmware side.
 4. Confirm Python serial ingestion works before adding extra firmware complexity.
 5. Run physical validation tests after the data path is stable.
 
-## Definition Of "Integrated"
+## When is it actually "integrated"?
 
-This project should only be called hardware-integrated when all of the following are true:
+The project should only be called hardware-integrated when:
 
 - real ESP32 telemetry reaches the Python side,
 - the dashboard displays that real telemetry live,

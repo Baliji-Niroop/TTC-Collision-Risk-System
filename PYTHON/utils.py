@@ -1,7 +1,6 @@
 """
-Utilities Module
-================
-Helper functions for the TTC system.
+utils.py
+System utilities — directory checks, health reports, environment validation.
 """
 
 from pathlib import Path

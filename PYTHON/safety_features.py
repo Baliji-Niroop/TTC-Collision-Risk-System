@@ -1,7 +1,6 @@
 """
-Safety Features and Advanced Collision Risk Management
-========================================================
-Implements hysteresis, fault detection, and ML confidence fusion.
+safety_features.py
+Risk hysteresis, sensor fault detection, velocity sanity, and ML confidence fusion.
 """
 
 from typing import Optional, Dict, Any, Tuple

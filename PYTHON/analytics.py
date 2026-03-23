@@ -1,7 +1,6 @@
 """
-Analytics Module
-================
-Provides analytical functions for data insights and predictions.
+analytics.py
+Session analytics, TTC statistics, trend detection, and risk insights.
 """
 
 from typing import Dict, List, Any

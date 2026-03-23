@@ -1,8 +1,7 @@
 """
-Configuration Module
-====================
-Centralized configuration for the TTC Collision Risk Prediction System.
-Manages constants, thresholds, and system parameters.
+config.py
+Centralized settings for the TTC Collision Risk system.
+All thresholds, paths, and tunable parameters live here.
 """
 
 from pathlib import Path
@@ -11,9 +10,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║ PATHS
-# ╚═══════════════════════════════════════════════════════════════════════════╝
+# --- Paths ---
 BASE_DIR = Path(__file__).resolve().parent
 ROOT_DIR = BASE_DIR.parent
 MODEL_PATH = ROOT_DIR / "MODELS" / "ml_model.pkl"
@@ -21,55 +18,44 @@ DATA_PATH = ROOT_DIR / "LOGS" / "live_data.txt"
 LOG_DIR = ROOT_DIR / "LOGS"
 CONFIG_FILE = ROOT_DIR / "config.json"
 
-# Ensure critical directories exist
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-# ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║ RISK CLASSIFICATION
-# ╚═══════════════════════════════════════════════════════════════════════════╝
-# These thresholds define the risk zones based on TTC values (Time-to-Collision)
+# --- Risk classification ---
+# TTC thresholds define the three risk zones
 RISK_THRESHOLDS = {
-    "critical": 1.5,   # TTC <= 1.5 s → CRITICAL
-    "warning": 3.0,    # 1.5 s < TTC <= 3.0 s → WARNING
-    "safe": float("inf")  # TTC > 3.0 s → SAFE
+    "critical": 1.5,       # TTC <= 1.5 s  ->  CRITICAL
+    "warning": 3.0,        # 1.5 < TTC <= 3.0  ->  WARNING
+    "safe": float("inf")   # TTC > 3.0  ->  SAFE
 }
 
-# Risk class labels
 RISK_LABELS = {0: "SAFE", 1: "WARNING", 2: "CRITICAL"}
 RISK_INVERSE = {v: k for k, v in RISK_LABELS.items()}
 
-# Risk colors for UI display
 RISK_COLORS = {
     0: ("SAFE", "#1a7a2e"),      # Green
     1: ("WARNING", "#b36b00"),    # Amber
     2: ("CRITICAL", "#b71c1c"),   # Red
 }
 
-# ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║ DASHBOARD & UI
-# ╚═══════════════════════════════════════════════════════════════════════════╝
+# --- Dashboard & UI ---
 DASHBOARD_CONFIG = {
     "page_title": "TTC Collision Risk Dashboard",
     "page_icon": "🚗",
     "layout": "wide",
-    "max_buffer_points": 120,  # Number of data points in rolling chart
-    "refresh_interval_sec": 0.6,  # Dashboard refresh rate
-    "log_display_rows": 30,  # Recent events to show
+    "max_buffer_points": 120,
+    "refresh_interval_sec": 0.6,
+    "log_display_rows": 30,
 }
 
-# ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║ SERIAL COMMUNICATION
-# ╚═══════════════════════════════════════════════════════════════════════════╝
+# --- Serial communication ---
 SERIAL_CONFIG = {
     "baud_rate": 115200,
-    "timeout": 2,  # seconds
+    "timeout": 2,
     "encoding": "utf-8",
     "expected_fields": 7,
 }
 
-# ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║ SIMULATOR
-# ╚═══════════════════════════════════════════════════════════════════════════╝
+# --- Simulator defaults ---
 SIMULATOR_CONFIG = {
     "initial_distance_m": 40.0,
     "closing_speed_kmh": 15.0,
@@ -78,67 +64,51 @@ SIMULATOR_CONFIG = {
     "reset_distance_m": 0.3,
 }
 
-# ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║ ALERTING
-# ╚═══════════════════════════════════════════════════════════════════════════╝
+# --- Alerting ---
 ALERT_CONFIG = {
     "enable_alerts": True,
-    "critical_alert_every_n_events": 1,  # Alert on every CRITICAL event
-    "warning_alert_every_n_events": 5,   # Alert on every 5th WARNING event
-    "min_ttc_alert_threshold": 1.0,  # Alert if TTC goes below this
+    "critical_alert_every_n_events": 1,
+    "warning_alert_every_n_events": 5,
+    "min_ttc_alert_threshold": 1.0,
 }
 
-# ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║ ANOMALY DETECTION
-# ╚═══════════════════════════════════════════════════════════════════════════╝
+# --- Anomaly detection ---
 ANOMALY_CONFIG = {
     "enable_detection": True,
-    "max_speed_kmh": 150.0,  # Unrealistic speed
-    "min_ttc_possible": 0.1,  # Can't have negative or near-zero TTC
-    "max_confidence_drop": 0.5,  # Large swings in confidence
+    "max_speed_kmh": 150.0,
+    "min_ttc_possible": 0.1,
+    "max_confidence_drop": 0.5,
     "outlier_zscore_threshold": 3.0,
 }
 
-# ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║ LOGGING
-# ╚═══════════════════════════════════════════════════════════════════════════╝
+# --- Logging ---
 LOGGING_CONFIG = {
-    "log_level": "INFO",  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+    "log_level": "INFO",
     "log_file": LOG_DIR / "ttc_system.log",
     "max_log_size_mb": 50,
     "backup_count": 5,
     "log_format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 }
 
-# ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║ HELPER FUNCTIONS
-# ╚═══════════════════════════════════════════════════════════════════════════╝
+
+# --- Helper functions ---
 
 def get_risk_class(ttc: float) -> int:
-    """
-    Classify risk based on TTC value.
-    
-    Args:
-        ttc: Time-to-collision in seconds
-        
-    Returns:
-        Risk class: 0 (SAFE), 1 (WARNING), 2 (CRITICAL)
-    """
+    """Return 0 (SAFE), 1 (WARNING), or 2 (CRITICAL) based on TTC."""
     if ttc <= RISK_THRESHOLDS["critical"]:
         return 2
     elif ttc <= RISK_THRESHOLDS["warning"]:
         return 1
-    else:
-        return 0
+    return 0
 
 
 def get_risk_label(risk_class: int) -> str:
-    """Get human-readable risk label."""
+    """Return the text label for a numeric risk class."""
     return RISK_LABELS.get(risk_class, "UNKNOWN")
 
 
 def load_config_from_file():
-    """Load configuration from JSON file if it exists."""
+    """Load overrides from config.json if it exists."""
     if CONFIG_FILE.exists():
         try:
             with open(CONFIG_FILE, "r") as f:
@@ -149,7 +119,7 @@ def load_config_from_file():
 
 
 def save_config_to_file(config_dict: dict):
-    """Save configuration to JSON file."""
+    """Write current config to config.json for persistence."""
     try:
         with open(CONFIG_FILE, "w") as f:
             json.dump(config_dict, f, indent=2, default=str)

@@ -1,7 +1,6 @@
 """
-Alerting Module
-===============
-Manages alerts and notifications for critical events.
+alerts.py
+Handles alert triggering and throttling for critical/warning events.
 """
 
 from typing import Optional, Callable
@@ -11,9 +10,7 @@ from logger import get_logger
 
 logger = get_logger(__name__)
 
-# ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║ ALERT MANAGER
-# ╚═══════════════════════════════════════════════════════════════════════════╝
+
 
 class AlertManager:
     """Manages and throttles alerts."""

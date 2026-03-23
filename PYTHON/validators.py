@@ -1,8 +1,7 @@
 """
-Data Validation Module
-======================
-Provides validation and sanitization for telemetry data.
-Detects anomalies and malformed data.
+validators.py
+Validates and sanitizes incoming telemetry data.
+Detects anomalies, rejects malformed rows, and bootstraps safety features.
 """
 
 from typing import Optional, Dict, Any
@@ -194,10 +193,7 @@ def validate_csv_line(line: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-# ============================================================================
-# ADVANCED SAFETY FEATURES INTEGRATION (Global Instances)
-# ============================================================================
-# These enable production-grade safety features across the system
+# Safety features bootstrap — instantiate global instances if available
 
 try:
     from safety_features import (

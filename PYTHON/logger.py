@@ -1,8 +1,6 @@
 """
-Logging Module
-==============
-Provides centralized logging for the entire TTC system.
-Supports file and console output with rotation.
+logger.py
+Centralized logging setup with file rotation and console output.
 """
 
 import logging
@@ -10,9 +8,7 @@ import logging.handlers
 from pathlib import Path
 from config import LOGGING_CONFIG
 
-# ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║ LOGGER SETUP
-# ╚═══════════════════════════════════════════════════════════════════════════╝
+
 
 def setup_logging(name: str, level: str = None) -> logging.Logger:
     """
