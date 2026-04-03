@@ -1,6 +1,8 @@
 pyserial
+websocket-client
 pandas
 numpy
 streamlit
 scikit-learn==1.7.1
 joblib
+matplotlib

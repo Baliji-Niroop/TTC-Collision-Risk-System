@@ -5,11 +5,14 @@ Detects anomalies, rejects malformed rows, and bootstraps safety features.
 """
 
 from typing import Optional, Dict, Any
-from config import ANOMALY_CONFIG, SERIAL_CONFIG
+from config import ANOMALY_CONFIG, SERIAL_CONFIG, TELEMETRY_FIELDS
 from logger import get_logger
 import statistics
+from telemetry_schema import parse_packet
 
 logger = get_logger(__name__)
+
+LEGACY_ALIAS_FIELDS = {"risk_phys", "v_closing_kmh", "ttc_basic_s", "speed_alias"}
 
 
 def validate_telemetry_line(line: str) -> bool:
@@ -25,9 +28,19 @@ def validate_telemetry_line(line: str) -> bool:
     if not line or not isinstance(line, str):
         return False
     
-    parts = line.split(",")
+    parts = [part.strip() for part in line.split(",")]
     if len(parts) != SERIAL_CONFIG["expected_fields"]:
         logger.warning(f"Invalid field count: expected {SERIAL_CONFIG['expected_fields']}, got {len(parts)}")
+        return False
+
+    # Reject header-like lines and legacy alias tokens in strict mode.
+    joined = ",".join(parts)
+    if any(alias in joined for alias in LEGACY_ALIAS_FIELDS):
+        logger.warning("Legacy alias field detected in telemetry line")
+        return False
+
+    if any(any(ch.isalpha() for ch in part) for part in parts):
+        logger.warning("Non-numeric token detected in telemetry packet")
         return False
     
     return True
@@ -53,17 +66,22 @@ def sanitize_telemetry_data(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return None
     
     try:
-        # Check required fields
-        required_fields = ["distance_cm", "speed_kmh", "ttc_basic", "ttc_ext", "confidence"]
-        if not all(field in row for field in required_fields):
-            logger.warning(f"Missing required fields in row: {row.keys()}")
+        # Canonical-only schema enforcement.
+        expected = set(TELEMETRY_FIELDS)
+        actual = set(row.keys())
+        if actual != expected:
+            missing = sorted(expected - actual)
+            extra = sorted(actual - expected)
+            logger.warning(f"Schema mismatch. Missing={missing}, extra={extra}")
             return None
         
         # Validate ranges
+        timestamp_ms = float(row["timestamp_ms"])
         distance = float(row["distance_cm"])
         speed = float(row["speed_kmh"])
         ttc_basic = float(row["ttc_basic"])
         confidence = float(row["confidence"])
+        risk_class = int(row["risk_class"])
         
         # Check unrealistic values - REJECT these rows
         if speed > ANOMALY_CONFIG["max_speed_kmh"]:
@@ -81,8 +99,17 @@ def sanitize_telemetry_data(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         if confidence < 0 or confidence > 1.0:
             logger.warning(f"Invalid confidence: {confidence}")
             return None
+
+        if timestamp_ms < 0:
+            logger.warning(f"Negative timestamp detected: {timestamp_ms}")
+            return None
+
+        if risk_class not in (0, 1, 2):
+            logger.warning(f"Invalid risk class: {risk_class}")
+            return None
         
         row["anomaly_flag"] = False
+        row["risk_class"] = risk_class
         return row
         
     except (ValueError, TypeError) as e:
@@ -174,17 +201,9 @@ def validate_csv_line(line: str) -> Optional[Dict[str, Any]]:
         return None
     
     try:
-        parts = [p.strip() for p in line.split(",")]
-        
-        row = {
-            "timestamp_ms": float(parts[0]),
-            "distance_cm": float(parts[1]),
-            "speed_kmh": float(parts[2]),
-            "ttc_basic": float(parts[3]),
-            "ttc_ext": float(parts[4]),
-            "risk_phys": int(float(parts[5])),
-            "confidence": float(parts[6]),
-        }
+        row = parse_packet(line)
+        if row is None:
+            return None
         
         return sanitize_telemetry_data(row)
         

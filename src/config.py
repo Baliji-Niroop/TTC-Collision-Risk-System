@@ -17,8 +17,27 @@ MODEL_PATH = ROOT_DIR / "MODELS" / "ml_model.pkl"
 DATA_PATH = ROOT_DIR / "LOGS" / "live_data.txt"
 LOG_DIR = ROOT_DIR / "LOGS"
 CONFIG_FILE = ROOT_DIR / "config.json"
+DATASET_DIR = ROOT_DIR / "dataset"
+VALIDATION_DIR = ROOT_DIR / "validation"
+REPORTS_DIR = ROOT_DIR / "docs" / "diagrams"
 
 LOG_DIR.mkdir(parents=True, exist_ok=True)
+DATASET_DIR.mkdir(parents=True, exist_ok=True)
+VALIDATION_DIR.mkdir(parents=True, exist_ok=True)
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+# --- Canonical telemetry schema ---
+TELEMETRY_FIELDS = (
+    "timestamp_ms",
+    "distance_cm",
+    "speed_kmh",
+    "ttc_basic",
+    "ttc_ext",
+    "risk_class",
+    "confidence",
+)
+TELEMETRY_FIELD_COUNT = 7
+SESSION_CSV_COLUMNS = list(TELEMETRY_FIELDS)
 
 # --- Risk classification ---
 # TTC thresholds define the three risk zones
@@ -52,7 +71,7 @@ SERIAL_CONFIG = {
     "baud_rate": 115200,
     "timeout": 2,
     "encoding": "utf-8",
-    "expected_fields": 7,
+    "expected_fields": TELEMETRY_FIELD_COUNT,
 }
 
 # --- Simulator defaults ---

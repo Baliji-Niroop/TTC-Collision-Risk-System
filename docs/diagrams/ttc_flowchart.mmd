@@ -1,0 +1,11 @@
+flowchart TD
+  A[Read distance + speed] --> B[Compute TTC basic]
+  B --> C[Compute TTC extended]
+  C --> D{TTC <= 1.5s?}
+  D -- Yes --> E[CRITICAL]
+  D -- No --> F{TTC <= 3.0s?}
+  F -- Yes --> G[WARNING]
+  F -- No --> H[SAFE]
+  E --> I[Alert + log]
+  G --> I
+  H --> I

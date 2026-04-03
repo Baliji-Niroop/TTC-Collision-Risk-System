@@ -1,0 +1,4 @@
+sample_index,timestamp_ms,confidence
+0,1200.0,0.88
+1,1400.0,0.84
+2,1600.0,0.82

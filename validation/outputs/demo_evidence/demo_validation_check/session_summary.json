@@ -1,0 +1,27 @@
+{
+  "session_id": "demo_validation_check",
+  "capture_utc": "2026-04-03T16:09:09.246580Z",
+  "source": "file",
+  "duration_sec": 10,
+  "rows_captured": 3,
+  "rows_recommended_min": 3,
+  "risk_distribution": {
+    "SAFE": 0.0,
+    "WARNING": 33.3,
+    "CRITICAL": 66.7
+  },
+  "confidence_summary": {
+    "min": 0.82,
+    "max": 0.88,
+    "mean": 0.8467,
+    "slope_per_sample": -0.03
+  },
+  "ttc_summary": {
+    "min": 0.9,
+    "max": 2.2,
+    "mean": 1.4333,
+    "slope_per_sample": -0.65
+  },
+  "alerts_count": 2,
+  "output_dir": "C:\\Users\\niroo\\Downloads\\TTC-PROJECT-FILES\\validation\\outputs\\demo_evidence\\demo_validation_check"
+}

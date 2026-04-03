@@ -1,0 +1,25 @@
+{
+  "dataset": "C:\\Users\\niroo\\Downloads\\TTC-PROJECT-FILES\\dataset\\synthetic_ttc_validation.csv",
+  "model_loaded": true,
+  "rows": 610,
+  "accuracy": 0.9934426229508196,
+  "critical_recall": 0.9978902953586498,
+  "false_alarm_rate": 0.007352941176470588,
+  "confusion_matrix": [
+    [
+      114,
+      0,
+      0
+    ],
+    [
+      2,
+      19,
+      1
+    ],
+    [
+      0,
+      1,
+      473
+    ]
+  ]
+}

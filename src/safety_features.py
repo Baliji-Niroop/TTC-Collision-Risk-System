@@ -229,7 +229,7 @@ class MLConfidenceFusion:
     """
     Fuses physics-based and ML-based risk classifications with confidence weighting.
     
-    Implements: Risk_final = w_physics * Risk_phys + w_ml * Risk_ml
+    Implements: Risk_final = w_physics * PhysicsScore + w_ml * Risk_ml
     where weights are adjusted based on each model's confidence.
     
     Also provides justification for safety-critical decisions.

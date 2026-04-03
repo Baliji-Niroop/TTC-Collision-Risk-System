@@ -39,7 +39,7 @@ echo.
 
 REM --- Step 3: Launch the Streamlit dashboard in its own window ---
 echo [3/4] Launching Streamlit dashboard ...
-start "TTC Dashboard" cmd /k "cd /d ""%~dp0"" && call ttc_env\Scripts\activate.bat && python -m streamlit run src\dashboard.py --server.headless true"
+start "TTC Dashboard" cmd /k "cd /d ""%~dp0"" && call ttc_env\Scripts\activate.bat && python -m streamlit run dashboard\app.py --server.headless true"
 echo       Dashboard starting in a separate window.
 echo.
 

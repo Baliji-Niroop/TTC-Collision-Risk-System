@@ -1,0 +1,22 @@
+{
+  "input": "dataset\\synthetic_ttc_validation.csv",
+  "model_loaded": true,
+  "rows_processed": 238,
+  "critical_events": 102,
+  "warning_events": 20,
+  "safe_events": 116,
+  "mean_ttc": 5.0751260504201685,
+  "mean_confidence": 0.9535128047312631,
+  "risk_distribution": {
+    "SAFE": 48.7,
+    "WARNING": 8.4,
+    "CRITICAL": 42.9
+  },
+  "ttc_statistics": {
+    "min": 0.2,
+    "max": 12.78,
+    "mean": 5.08,
+    "median": 2.81,
+    "stdev": 4.8
+  }
+}

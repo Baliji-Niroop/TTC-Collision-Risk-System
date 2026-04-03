@@ -29,20 +29,22 @@ try:
     from config import SERIAL_CONFIG, LOG_DIR
     from logger import get_logger
     from validators import validate_csv_line
+    from telemetry_schema import format_packet
     logger = get_logger(__name__)
 except ImportError:
     logger = None
     LOG_DIR = None
     SERIAL_CONFIG = {"baud_rate": 115200, "timeout": 2}
     validate_csv_line = None
+    format_packet = None
 
 # Column names for the session CSV export
 COLUMNS = [
     "timestamp_ms",
     "distance_cm",
-    "v_closing_kmh",
-    "ttc_basic_s",
-    "ttc_ext_s",
+    "speed_kmh",
+    "ttc_basic",
+    "ttc_ext",
     "risk_class",
     "confidence",
 ]
@@ -170,40 +172,34 @@ def main():
 
             # Parse each field into its expected numeric type
             try:
-                row = [
-                    float(parts[0]),    # timestamp_ms
-                    float(parts[1]),    # distance_cm
-                    float(parts[2]),    # v_closing_kmh
-                    float(parts[3]),    # ttc_basic_s
-                    float(parts[4]),    # ttc_ext_s
-                    int(parts[5]),      # risk_class (0, 1, or 2)
-                    float(parts[6]),    # confidence (0.0 to 1.0)
-                ]
+                row = validate_csv_line(line) if validate_csv_line else None
             except (ValueError, IndexError) as e:
                 if logger:
                     logger.debug(f"Parse error: {e}")
                 continue
 
+            if row is None:
+                continue
+
             session_data.append(row)
 
-            # Write the raw CSV line to the shared live data file so the
-            # Streamlit dashboard can pick it up on its next refresh cycle.
+            # Write the normalized canonical packet to the shared live data file so the
+            # Streamlit dashboard sees the same frozen schema every time.
             try:
                 with open(LIVE_FILE, "w", encoding="utf-8") as f:
-                    f.write(line)
+                    f.write(format_packet(row) + "\n" if format_packet else line + "\n")
             except IOError as e:
                 if logger:
                     logger.error(f"Failed to write live data file: {e}")
 
             # Pretty-print each reading to the console for monitoring
-            risk_label = RISK_LABELS.get(row[5], "?")
             output = (
-                f"{row[0]:>8.0f} ms | "
-                f"{row[1]:>6.1f} cm | "
-                f"{row[2]:>5.1f} km/h | "
-                f"TTC={row[3]:>5.2f}s | "
-                f"{risk_label} | "
-                f"conf={row[6]:.2f}"
+                f"{row['timestamp_ms']:>8.0f} ms | "
+                f"{row['distance_cm']:>6.1f} cm | "
+                f"{row['speed_kmh']:>5.1f} km/h | "
+                f"TTC={row['ttc_basic']:>5.2f}s | "
+                f"{RISK_LABELS.get(row['risk_class'], '?')} | "
+                f"conf={row['confidence']:.2f}"
             )
             print(output)
 
@@ -228,7 +224,7 @@ def main():
                 df = pd.DataFrame(session_data, columns=COLUMNS)
                 df.to_csv(log_file, index=False)
                 print(f"\nSaved {len(session_data)} rows to {log_file}")
-                print(f"Min TTC: {df['ttc_basic_s'].min():.2f} s")
+                print(f"Min TTC: {df['ttc_basic'].min():.2f} s")
                 print(f"CRITICAL events: {(df['risk_class'] == 2).sum()}")
                 if logger:
                     logger.info(f"Session saved: {len(session_data)} rows to {log_file}")

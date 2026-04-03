@@ -1,0 +1,234 @@
+"""
+synthetic_validation_dataset.py
+Generate a labeled TTC validation dataset covering software-first scenarios.
+"""
+
+from __future__ import annotations
+
+import math
+from pathlib import Path
+from typing import Dict, List
+
+import numpy as np
+import pandas as pd
+
+from config import DATASET_DIR, RISK_THRESHOLDS
+from telemetry_schema import canonical_row
+
+
+OUTPUT_FILE = DATASET_DIR / "synthetic_ttc_validation.csv"
+
+
+def classify_ttc(ttc: float, critical: float = None, warning: float = None) -> int:
+    critical = RISK_THRESHOLDS["critical"] if critical is None else critical
+    warning = RISK_THRESHOLDS["warning"] if warning is None else warning
+    if ttc <= critical:
+        return 2
+    if ttc <= warning:
+        return 1
+    return 0
+
+
+def extended_ttc(distance_cm: float, speed_kmh: float, decel_ms2: float = 5.0) -> float:
+    distance_m = max(distance_cm, 0.0) / 100.0
+    speed_ms = max(speed_kmh, 0.0) / 3.6
+    if speed_ms <= 0.01:
+        return 99.0
+    disc = speed_ms * speed_ms + 2.0 * decel_ms2 * distance_m
+    return max(0.0, (-speed_ms + math.sqrt(max(disc, 0.0))) / decel_ms2)
+
+
+def safe_cruise(rng: np.random.Generator) -> List[Dict[str, float]]:
+    rows = []
+    timestamp_ms = 0
+    distance_cm = 6000.0
+    speed_kmh = 18.0
+    for step in range(100):
+        distance_cm -= 25.0 + rng.normal(0, 2.0)
+        speed_kmh = max(12.0, min(24.0, speed_kmh + rng.normal(0, 0.4)))
+        ttc_basic = (distance_cm / 100.0) / max(speed_kmh / 3.6, 0.1)
+        ttc_ext = extended_ttc(distance_cm, speed_kmh)
+        risk_class = classify_ttc(ttc_basic)
+        confidence = float(np.clip(0.96 - abs(rng.normal(0, 0.02)), 0.8, 0.99))
+        rows.append(canonical_row(timestamp_ms, distance_cm, speed_kmh, ttc_basic, ttc_ext, risk_class, confidence))
+        rows[-1]["scenario"] = "safe_cruise"
+        rows[-1]["ground_truth_risk_class"] = risk_class
+        rows[-1]["phase"] = "steady"
+        timestamp_ms += 250
+    return rows
+
+
+def slow_closing(rng: np.random.Generator) -> List[Dict[str, float]]:
+    rows = []
+    timestamp_ms = 0
+    distance_cm = 2200.0
+    speed_kmh = 10.0
+    for step in range(100):
+        speed_kmh = min(18.0, speed_kmh + 0.05 + rng.normal(0, 0.2))
+        distance_cm -= max(speed_kmh / 3.6 * 0.25 * 100.0, 10.0)
+        distance_cm = max(distance_cm, 120.0)
+        ttc_basic = (distance_cm / 100.0) / max(speed_kmh / 3.6, 0.1)
+        ttc_ext = extended_ttc(distance_cm, speed_kmh)
+        risk_class = classify_ttc(ttc_basic)
+        confidence = float(np.clip(0.90 - max(0.0, (3.0 - ttc_basic)) * 0.03 + rng.normal(0, 0.02), 0.65, 0.98))
+        rows.append(canonical_row(timestamp_ms, distance_cm, speed_kmh, ttc_basic, ttc_ext, risk_class, confidence))
+        rows[-1]["scenario"] = "slow_closing"
+        rows[-1]["ground_truth_risk_class"] = risk_class
+        rows[-1]["phase"] = "closing"
+        timestamp_ms += 250
+    return rows
+
+
+def fast_collision(rng: np.random.Generator) -> List[Dict[str, float]]:
+    rows = []
+    timestamp_ms = 0
+    distance_cm = 1400.0
+    speed_kmh = 42.0
+    for step in range(90):
+        distance_cm -= max((speed_kmh / 3.6) * 0.25 * 100.0, 5.0)
+        speed_kmh = max(25.0, speed_kmh + rng.normal(0, 0.6))
+        ttc_basic = (distance_cm / 100.0) / max(speed_kmh / 3.6, 0.1)
+        ttc_ext = extended_ttc(distance_cm, speed_kmh)
+        risk_class = classify_ttc(ttc_basic)
+        confidence = float(np.clip(0.87 + (2.0 - min(ttc_basic, 2.0)) * 0.04 + rng.normal(0, 0.03), 0.70, 0.99))
+        rows.append(canonical_row(timestamp_ms, distance_cm, speed_kmh, ttc_basic, ttc_ext, risk_class, confidence))
+        rows[-1]["scenario"] = "fast_collision"
+        rows[-1]["ground_truth_risk_class"] = risk_class
+        rows[-1]["phase"] = "impact"
+        timestamp_ms += 200
+    return rows
+
+
+def sudden_braking(rng: np.random.Generator) -> List[Dict[str, float]]:
+    rows = []
+    timestamp_ms = 0
+    distance_cm = 2400.0
+    speed_kmh = 34.0
+    for step in range(110):
+        if step < 40:
+            speed_kmh = max(20.0, speed_kmh + rng.normal(0, 0.4))
+            phase = "approach"
+        elif step < 60:
+            speed_kmh = max(4.0, speed_kmh - 2.1 + rng.normal(0, 0.3))
+            phase = "braking"
+        else:
+            speed_kmh = max(2.5, speed_kmh + rng.normal(0, 0.2))
+            phase = "recovering"
+        distance_cm -= max((speed_kmh / 3.6) * 0.25 * 100.0, 4.0)
+        ttc_basic = (distance_cm / 100.0) / max(speed_kmh / 3.6, 0.1)
+        ttc_ext = extended_ttc(distance_cm, speed_kmh)
+        risk_class = classify_ttc(ttc_basic)
+        confidence = float(np.clip(0.93 - max(0.0, (1.8 - ttc_basic)) * 0.05 + rng.normal(0, 0.02), 0.72, 0.99))
+        rows.append(canonical_row(timestamp_ms, distance_cm, speed_kmh, ttc_basic, ttc_ext, risk_class, confidence))
+        rows[-1]["scenario"] = "sudden_braking"
+        rows[-1]["ground_truth_risk_class"] = risk_class
+        rows[-1]["phase"] = phase
+        timestamp_ms += 250
+    return rows
+
+
+def noisy_sensor(rng: np.random.Generator) -> List[Dict[str, float]]:
+    rows = []
+    timestamp_ms = 0
+    latent_distance_cm = 1800.0
+    latent_speed_kmh = 20.0
+    for step in range(100):
+        latent_distance_cm -= (latent_speed_kmh / 3.6) * 0.25 * 100.0
+        latent_speed_kmh = max(8.0, latent_speed_kmh + rng.normal(0, 0.3))
+        measured_distance_cm = latent_distance_cm + rng.normal(0, 35.0)
+        measured_speed_kmh = latent_speed_kmh + rng.normal(0, 1.5)
+        if step % 18 == 0:
+            measured_distance_cm += rng.normal(0, 180.0)
+        ttc_basic = (max(measured_distance_cm, 1.0) / 100.0) / max(measured_speed_kmh / 3.6, 0.1)
+        ttc_ext = extended_ttc(max(measured_distance_cm, 1.0), max(measured_speed_kmh, 0.1))
+        ground_truth_ttc = (max(latent_distance_cm, 1.0) / 100.0) / max(latent_speed_kmh / 3.6, 0.1)
+        risk_class = classify_ttc(ground_truth_ttc)
+        confidence = float(np.clip(0.60 - abs(measured_distance_cm - latent_distance_cm) / 4000.0 + rng.normal(0, 0.03), 0.35, 0.95))
+        rows.append(canonical_row(timestamp_ms, measured_distance_cm, measured_speed_kmh, ttc_basic, ttc_ext, risk_class, confidence))
+        rows[-1]["scenario"] = "noisy_sensor"
+        rows[-1]["ground_truth_risk_class"] = risk_class
+        rows[-1]["phase"] = "noisy"
+        rows[-1]["latent_distance_cm"] = round(latent_distance_cm, 2)
+        rows[-1]["latent_speed_kmh"] = round(latent_speed_kmh, 2)
+        timestamp_ms += 250
+    return rows
+
+
+def wet_road_shift(rng: np.random.Generator) -> List[Dict[str, float]]:
+    rows = []
+    timestamp_ms = 0
+    distance_cm = 2600.0
+    speed_kmh = 28.0
+    wet_critical = 1.8
+    wet_warning = 3.4
+    for step in range(110):
+        if step > 65:
+            speed_kmh = max(6.0, speed_kmh - 0.5 + rng.normal(0, 0.2))
+            phase = "wet_braking"
+        else:
+            speed_kmh = max(16.0, speed_kmh + rng.normal(0, 0.3))
+            phase = "wet_approach"
+        distance_cm -= max((speed_kmh / 3.6) * 0.25 * 100.0, 5.0)
+        ttc_basic = (distance_cm / 100.0) / max(speed_kmh / 3.6, 0.1)
+        ttc_ext = extended_ttc(distance_cm, speed_kmh, decel_ms2=4.0)
+        risk_class = classify_ttc(ttc_basic, critical=wet_critical, warning=wet_warning)
+        confidence = float(np.clip(0.88 - max(0.0, (wet_warning - ttc_basic)) * 0.04 + rng.normal(0, 0.02), 0.68, 0.98))
+        rows.append(canonical_row(timestamp_ms, distance_cm, speed_kmh, ttc_basic, ttc_ext, risk_class, confidence))
+        rows[-1]["scenario"] = "wet_road_threshold_shift"
+        rows[-1]["ground_truth_risk_class"] = risk_class
+        rows[-1]["phase"] = phase
+        rows[-1]["wet_warning_threshold_s"] = wet_warning
+        rows[-1]["wet_critical_threshold_s"] = wet_critical
+        timestamp_ms += 250
+    return rows
+
+
+SCENARIO_BUILDERS = [
+    safe_cruise,
+    slow_closing,
+    fast_collision,
+    sudden_braking,
+    noisy_sensor,
+    wet_road_shift,
+]
+
+
+def build_dataset(seed: int = 42) -> pd.DataFrame:
+    rng = np.random.default_rng(seed)
+    rows: List[Dict[str, float]] = []
+    for builder in SCENARIO_BUILDERS:
+        rows.extend(builder(rng))
+
+    df = pd.DataFrame(rows)
+    ordered_columns = [
+        "timestamp_ms",
+        "distance_cm",
+        "speed_kmh",
+        "ttc_basic",
+        "ttc_ext",
+        "risk_class",
+        "confidence",
+        "scenario",
+        "phase",
+        "ground_truth_risk_class",
+        "latent_distance_cm",
+        "latent_speed_kmh",
+        "wet_warning_threshold_s",
+        "wet_critical_threshold_s",
+    ]
+    for column in ordered_columns:
+        if column not in df.columns:
+            df[column] = pd.NA
+    return df[ordered_columns]
+
+
+def main() -> None:
+    DATASET_DIR.mkdir(parents=True, exist_ok=True)
+    df = build_dataset()
+    df.to_csv(OUTPUT_FILE, index=False)
+    print(f"Saved {len(df)} rows to {OUTPUT_FILE}")
+    print(df["scenario"].value_counts().to_string())
+
+
+if __name__ == "__main__":
+    main()

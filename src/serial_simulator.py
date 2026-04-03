@@ -7,7 +7,7 @@ When distance drops to 0.3m (near-collision), the obstacle resets to 40m.
 The dashboard can read this file in Live Log mode.
 
 Output format (7 CSV fields per line):
-    timestamp_ms, distance_cm, speed_kmh, ttc_basic, ttc_ext, risk, confidence
+    timestamp_ms, distance_cm, speed_kmh, ttc_basic, ttc_ext, risk_class, confidence
 
 Usage:  python serial_simulator.py
 """
@@ -22,6 +22,7 @@ try:
         ROOT_DIR, SIMULATOR_CONFIG, get_risk_class
     )
     from logger import get_logger
+    from telemetry_schema import canonical_row, format_packet
     logger = get_logger(__name__)
     DATA_FILE = ROOT_DIR / "LOGS" / "live_data.txt"
     INITIAL_DISTANCE_M = SIMULATOR_CONFIG.get("initial_distance_m", 40.0)
@@ -38,6 +39,28 @@ except ImportError:
     DECEL_MS2 = 5.0
     LOOP_DT = 0.3
     get_risk_class = None
+
+    def canonical_row(*args, **kwargs):
+        return {
+            "timestamp_ms": float(args[0]),
+            "distance_cm": float(args[1]),
+            "speed_kmh": float(args[2]),
+            "ttc_basic": float(args[3]),
+            "ttc_ext": float(args[4]),
+            "risk_class": int(args[5]),
+            "confidence": float(args[6]),
+        }
+
+    def format_packet(row):
+        return (
+            f"{int(round(row['timestamp_ms']))},"
+            f"{row['distance_cm']:.2f},"
+            f"{row['speed_kmh']:.2f},"
+            f"{row['ttc_basic']:.2f},"
+            f"{row['ttc_ext']:.2f},"
+            f"{int(row['risk_class'])},"
+            f"{row['confidence']:.2f}"
+        )
 
 
 def compute_ttc_extended(dist_m, v_ms, a=5.0):
@@ -119,15 +142,12 @@ if __name__ == "__main__":
 
             # Classify risk and compute a synthetic confidence score.
             # Confidence decreases when the two TTC estimates diverge.
-            risk = classify_risk(ttc_basic)
+            risk_class = classify_risk(ttc_basic)
             conf = round(1.0 - abs(ttc_basic - ttc_ext) / (ttc_basic + 0.01) * 0.3, 2)
             conf = max(0.5, min(1.0, conf))
 
-            # Build the CSV line and write it to the shared log file
-            line = (
-                f"{t_ms},{distance_cm:.2f},{v_kmh:.1f},"
-                f"{ttc_basic:.2f},{ttc_ext:.2f},{risk},{conf:.2f}"
-            )
+            packet = canonical_row(t_ms, distance_cm, v_kmh, ttc_basic, ttc_ext, risk_class, conf)
+            line = format_packet(packet)
 
             try:
                 # Atomic write: write to temp file then rename to avoid
@@ -146,7 +166,7 @@ if __name__ == "__main__":
             output = (
                 f"t={t_ms:6d} ms | dist={distance_cm:6.1f} cm | "
                 f"v={v_kmh:.1f} km/h | TTC={ttc_basic:.2f} s | "
-                f"{labels[risk]} | conf={conf:.2f}"
+                f"{labels[risk_class]} | conf={conf:.2f}"
             )
             print(output)
 

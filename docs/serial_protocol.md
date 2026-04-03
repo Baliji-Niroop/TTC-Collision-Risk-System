@@ -4,6 +4,10 @@ This document defines the packet format currently expected by the Python side of
 
 If ESP32 firmware is written or updated it should match this format unless the Python parser is intentionally changed at the same time.
 
+This packet layout is now the canonical frozen telemetry schema for the simulator, serial reader, dashboard, replay runner, synthetic dataset generator, and future ESP32 firmware.
+
+Strict mode is enabled: legacy aliases are not accepted.
+
 ## Packet format
 
 Each serial message must be one line of CSV with exactly 7 fields:
@@ -39,6 +43,7 @@ The current Python parser expects:
 - Numeric values in every field.
 - `risk_class` parseable as an integer.
 - `confidence` between `0.0` and `1.0`.
+- No alias field names (for example `risk_phys`, `v_closing_kmh`, `ttc_basic_s`, `speed_alias`).
 
 Rows may be rejected if they contain:
 
@@ -48,6 +53,17 @@ Rows may be rejected if they contain:
 - Impossible TTC values.
 - Unrealistic speed values.
 - Invalid confidence values.
+- Any legacy alias field names.
+
+## Firmware emitter lock
+
+Firmware must emit packets with this exact format string and order:
+
+```text
+timestamp_ms,distance_cm,speed_kmh,ttc_basic,ttc_ext,risk_class,confidence\n
+```
+
+Reference implementation: `firmware/serial_protocol.h` -> `emitTelemetryPacket(...)`.
 
 ## Current threshold conventions
 
@@ -88,7 +104,14 @@ Before the first ESP32 test, confirm:
 
 ## Related files
 
+- `src/telemetry_schema.py`
 - `src/serial_reader.py`
 - `src/validators.py`
 - `src/config.py`
+- `src/serial_simulator.py`
+- `src/ml_inference.py`
+- `src/replay_runner.py`
+- `src/synthetic_validation_dataset.py`
+- `validation/evaluate_synthetic.py`
+- `firmware/`
 - `README.md`

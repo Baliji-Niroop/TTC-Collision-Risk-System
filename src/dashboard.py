@@ -15,6 +15,7 @@ Run with:  streamlit run dashboard.py
 """
 
 # Standard library
+import os
 import time
 import math
 import random
@@ -33,6 +34,7 @@ try:
     from logger import get_logger
     from validators import validate_csv_line
     from alerts import check_and_alert
+    from telemetry_schema import parse_packet
 except ImportError as e:
     # Fallback if modules not found
     print(f"Warning: Could not import project modules: {e}")
@@ -52,6 +54,7 @@ except ImportError as e:
     get_logger = lambda x: None
     validate_csv_line = lambda x: None
     check_and_alert = lambda x, y: False
+    parse_packet = lambda x: None
 
 # Logging
 logger = get_logger(__name__) if get_logger else None
@@ -197,7 +200,7 @@ def simulate_step() -> dict:
         TTC_ext   = (-v + sqrt(v² + 2·a·d)) / a      (constant-deceleration model)
 
     Returns a dict with keys: distance_cm, speed_kmh, ttc_basic, ttc_ext,
-    risk_phys, confidence.
+    risk_class, confidence.
     """
     dt = REFRESH_SEC
     d  = st.session_state.sim_d
@@ -250,11 +253,12 @@ def simulate_step() -> dict:
     risk = 0 if ttc_basic > 3.0 else (1 if ttc_basic > 1.5 else 2)
 
     return {
+        "timestamp_ms": 0.0,
         "distance_cm": round(d * 100, 1),
         "speed_kmh":   round(abs(v) * 3.6, 1),
         "ttc_basic":   ttc_basic,
         "ttc_ext":     ttc_ext,
-        "risk_phys":   risk,
+        "risk_class":  risk,
         "confidence":  round(random.uniform(0.76, 0.99), 2),
     }
 
@@ -269,29 +273,10 @@ def parse_csv_line(line: str) -> dict:
     Returns a dict with the parsed values, or None if the line is malformed.
     """
     try:
-        if not line or not isinstance(line, str):
-            return None
-            
-        parts = [p.strip() for p in line.split(",")]
-        if len(parts) != 7:
-            if logger:
-                logger.debug(f"Invalid field count: {len(parts)} != 7")
-            return None
-        
-        parsed = {
-            "distance_cm": float(parts[1]),
-            "speed_kmh":   float(parts[2]),
-            "ttc_basic":   float(parts[3]),
-            "ttc_ext":     float(parts[4]),
-            "risk_phys":   int(float(parts[5])),
-            "confidence":  float(parts[6]),
-        }
-        
-        # Add anomaly detection if available
         if validate_csv_line:
             return validate_csv_line(line)
-        
-        return parsed
+
+        return parse_packet(line)
         
     except (ValueError, IndexError) as e:
         if logger:
@@ -377,11 +362,10 @@ def ml_predict(row: dict) -> int:
         speed, distance, closing_vel, ttc, road
 
     If the model is not available (file missing or load failed), the
-    function falls back to the physics-based risk class already computed
-    by the data source.
+    function uses the packet-provided risk class.
     """
     if model is None:
-        return row["risk_phys"]
+        return row["risk_class"]
     try:
         d_m       = row["distance_cm"] / 100.0
         spd       = row["speed_kmh"]
@@ -408,7 +392,7 @@ def ml_predict(row: dict) -> int:
 
         return int(model.predict(features)[0])
     except Exception:
-        return row["risk_phys"]
+        return row["risk_class"]
 
 
 # --- Sidebar ---
@@ -424,7 +408,9 @@ _mode_opts = ["Simulator", "Live Log"]
 if _SERIAL_OK:
     _mode_opts.append("ESP32 Serial")
 
-mode = st.sidebar.radio("Data Source", _mode_opts)
+_default_mode = os.environ.get("TTC_DASHBOARD_DEFAULT_MODE", "Simulator")
+_default_mode_index = _mode_opts.index(_default_mode) if _default_mode in _mode_opts else 0
+mode = st.sidebar.radio("Data Source", _mode_opts, index=_default_mode_index)
 
 # If ESP32 mode is selected, show a dropdown of available COM ports
 serial_port = None
@@ -439,7 +425,7 @@ st.sidebar.markdown("---")
 
 # --- System status ---
 st.sidebar.markdown(
-    f"**ML Model:** {'Loaded' if model else 'Not found — using physics fallback'}"
+    f"**ML Model:** {'Loaded' if model else 'Not found — using packet risk_class'}"
 )
 st.sidebar.markdown(
     f"**pyserial:** {'Available' if _SERIAL_OK else 'Not installed'}"
@@ -523,7 +509,7 @@ if row is None:
     st.stop()
 
 # Validate all required fields
-required_fields = ["ttc_basic", "speed_kmh", "distance_cm", "ttc_ext", "confidence"]
+required_fields = ["timestamp_ms", "ttc_basic", "speed_kmh", "distance_cm", "ttc_ext", "confidence", "risk_class"]
 missing_fields = [f for f in required_fields if f not in row]
 if missing_fields:
     if logger:
@@ -588,13 +574,16 @@ df = pd.DataFrame(st.session_state.buffer)
 
 # Append to the full event log (used for the data table and CSV export)
 st.session_state.log_rows.append({
+    "timestamp_ms":   row["timestamp_ms"],
     "time":          time.strftime("%H:%M:%S"),
-    "ttc_basic_s":   round(ttc_b, 2),
-    "ttc_ext_s":     round(row["ttc_ext"], 2),
+    "distance_cm":   row["distance_cm"],
+    "speed_kmh":     row["speed_kmh"],
+    "ttc_basic":     ttc_b,
+    "ttc_ext":       row["ttc_ext"],
+    "risk_class":    risk,
+    "confidence":    row["confidence"],
     "distance_m":    round(row["distance_cm"] / 100, 2),
-    "speed_kmh":     round(row["speed_kmh"], 1),
-    "risk":          RISK_LABELS[risk],
-    "confidence_%":  round(row["confidence"] * 100, 0),
+    "risk_label":    RISK_LABELS[risk],
 })
 
 # Cap the log_rows to prevent memory leak and execution lag
@@ -723,29 +712,37 @@ if st.session_state.log_rows:
 
     def _highlight_risk(row):
         """Apply background tint to WARNING and CRITICAL rows."""
-        if row["risk"] == "CRITICAL":
+        if row["risk_label"] == "CRITICAL":
             return ["background-color: rgba(183,28,28,0.12)"] * len(row)
-        elif row["risk"] == "WARNING":
+        elif row["risk_label"] == "WARNING":
             return ["background-color: rgba(179,107,0,0.10)"] * len(row)
         return [""] * len(row)
 
     styled_log = log_df.style.apply(_highlight_risk, axis=1).format({
-        "ttc_basic_s": "{:.2f}",
-        "ttc_ext_s":   "{:.2f}",
+        "ttc_basic": "{:.2f}",
+        "ttc_ext":   "{:.2f}",
         "distance_m":  "{:.2f}",
         "speed_kmh":   "{:.1f}",
-        "confidence_%": "{:.0f}",
+        "confidence": "{:.2f}",
     })
     st.dataframe(
         styled_log, height=240, use_container_width=True,
         column_config={
-            "risk": st.column_config.TextColumn("risk", width="medium"),
+            "risk_label": st.column_config.TextColumn("risk_label", width="medium"),
         },
     )
 
     # CSV export of the full session log (not just the last 30 rows)
     csv_bytes = (
-        pd.DataFrame(st.session_state.log_rows)
+        pd.DataFrame(st.session_state.log_rows)[[
+            "timestamp_ms",
+            "distance_cm",
+            "speed_kmh",
+            "ttc_basic",
+            "ttc_ext",
+            "risk_class",
+            "confidence",
+        ]]
         .to_csv(index=False)
         .encode("utf-8")
     )
