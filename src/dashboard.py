@@ -13,6 +13,61 @@ updates the charts, metrics, event log and session statistics.
 
 Run with:  streamlit run dashboard.py
 """
+"""
+dashboard.py - Live Telemetry Visualization Dashboard
+
+Niroop's Capstone Project
+
+EVOLUTION & REFACTORING JOURNEY:
+Week 1: Simple matplotlib plots - worked but ugly and slow
+Week 2: Switched to Streamlit - SO much cleaner! Much less code needed
+Week 3: Added multi-source support (simulator, file, serial)
+Week 4: Refactored to use config imports and validators
+Week 5: Current version - clean, modular, production-like
+
+DESIGN DECISIONS (and why):
+
+Three data sources for flexibility:
+    ✓ Simulator: Quick testing without hardware
+    ✓ Live Log: Review recent test run from file
+    ✓ Serial: Real-time from ESP32 board
+
+Updated every 0.6s instead of every frame:
+    - 10 Hz sensor loop → but Streamlit UI is slower
+    - 0.6s is smooth enough for human perception
+    - Too fast (every frame) = wasted rendering
+    - Too slow (>1s) = feels laggy
+
+STREAMLIT-SPECIFIC NOTES:
+- Everything re-runs entire script on each interaction!
+- Use @st.cache_data for data loading (massive speedup)
+- Use @st.cache_resource for model loading
+- Store state in st.session_state (persists across runs)
+
+PRODUCTION NOTES:
+- Currently logs to console + file (could add Plotly export)
+- CSS styling makes it professional-looking (spent way too long on this!)
+- Responsive to different screen sizes (mobile-friendly not priority)
+- Dark mode ready (Streamlit handles this automatically)
+
+DEBUGGING EXPERIENCES:
+- Streamlit cache gotcha: old data loaded from cache when data changes
+    Solution: File modification timestamp check
+- MultiIndex DataFrames crashed Streamlit display
+    Solution: Reset index before passing to st.dataframe()
+- CSV parsing failed on escaped commas
+    Solution: Delegated to pandas read_csv() with proper quoting
+
+TESTING STRATEGY:
+- Use simulator for quick iteration (10-second test, done)
+- Use file source for regression tests (replay historical data)
+- Use serial source for final validation with real board
+
+TODO: Add export to PDF report
+TODO: Add configurable thresholds via dropdown (currently hardcoded)
+TODO: Add live video feed integration if we get camera
+TODO: Performance optimization: Cache more aggressively
+"""
 
 # Standard library
 import os

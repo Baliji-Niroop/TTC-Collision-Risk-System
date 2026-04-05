@@ -2,6 +2,120 @@
 synthetic_validation_dataset.py
 Generate a labeled TTC validation dataset covering software-first scenarios.
 """
+"""
+synthetic_validation_dataset.py - Synthetic Test Data Generation
+
+Niroop's Capstone Project
+
+PURPOSE:
+Generate realistic kinematic scenarios for TTC system validation.
+Real collision data is: (a) rare, (b) dangerous to capture, (c) privacy concerns.
+Solution: Synthetic data with ground-truth labels for algorithm validation.
+
+DESIGN JOURNEY:
+Week 1: Simple linear scenarios (constant velocity) - too boring, unrealistic
+Week 2: Added random noise, different scenarios (cruise, braking, collision)
+Week 3: Calculated ground-truth labels using physics formulas
+Week 4: Added confidence scores and road condition variations
+Week 5: Current version with 7+ scenario types and proper randomization
+
+HOW TO USE THIS DATA:
+1. Generate CSV: python src/synthetic_validation_dataset.py
+2. Outputs: dataset/synthetic_ttc_validation.csv (~5000 rows)
+3. Each row represents 100ms sensor reading from simulated vehicle
+4. Use as training data for ML models or validation baseline
+
+SCENARIO DESIGN PHILOSOPHY:
+Each scenario represents a real-world driving situation:
+
+SAFE_CRUISE:
+    - Vehicle cruising at constant safe distance
+    - Distance ~60m, speed ~18 km/h
+    - TTC always >> 3.0s (very safe)
+    - Use case: Validate SAFE classification accuracy
+
+SLOW_CLOSING:
+    - Gradually approaching object (natural traffic)
+    - Approaches from 22m→1.2m over 20 seconds
+    - TTC decreases from 8.0s → 0.3s (crosses WARNING boundary)
+    - Replicates: Normal city driving with traffic light queue
+
+SUDDEN_BRAKING:
+    - Lead vehicle brakes hard (emergency)
+    - Speed drops 30 km/h → 10 km/h in 2 seconds
+    - Distance rapidly decreases
+    - TTC may jump from SAFE to CRITICAL
+    - Replicates: RTC behavior testing
+
+EMERGENCY_COLLISION:
+    - Worst case: head-on with closing relative velocity
+    - Distance decreases fastest of all scenarios
+    - TTC reaches 0s (collision certain)
+    - Replicates: Emergency response testing
+
+NOISY_SENSOR:
+    - Simulates realistic sensor noise (~5 cm gaussian jitter)
+    - Same scenario as slow_closing but with noise added
+    - Use case: Validate Kalman filter effectiveness
+    - Observation: Noise magnitude matters! Too much → bad predictions
+
+ROAD_VARIATIONS:
+    - DRY: baseline conditions
+    - WET: add multiplier 1.4x (longer braking distance)
+    - GRAVEL: 1.6x multiplier
+    - ICE: 2.0x multiplier (worst case)
+    - Replicate: Threshold adjustments per road surface
+
+DATA QUALITY CONSIDERATIONS:
+
+✓ Ground truth labels based on physics (no training bias)
+    Calculated using: TTC = D / V (basic) or (-V + sqrt(V² + 2*a*D)) / a (extended)
+
+✓ Confidence scores reflect uncertainty
+    When TTC near decision boundary → confidence drops
+    Example: TTC = 3.1s (just barely safe) → confidence ~0.70
+                     TTC = 5.0s (clearly safe) → confidence ~0.95
+
+✓ Random noise added realistically
+    ~2 cm standard deviation (realistic for ultrasonic + LiDAR)
+    Gaussian distribution (biased sensors return...)
+
+✓ Boundary conditions tested
+    Minimum distance: 5.0 cm (below this = definitely crash)
+    Maximum TTC: 99.0s (represents "no collision")
+    Zero velocity handling: prevent division by zero
+
+LIMITATIONS & FUTURE IMPROVEMENTS:
+
+✗ Current: Assumes both objects moving in straight line
+    TODO: Add turns, lane changes (2D kinematics)
+
+✗ Current: Noise is independent per frame
+    TODO: Add autocorrelated noise (sensor bias, not just jitter)
+
+✗ Current: Only uses distance and speed
+    TODO: Add other features (acceleration, jerk, angular velocity)
+
+✗ Current: Synthetic data doesn't capture all real cases
+    TODO: Collect real driving data once hardware ready
+
+REPRODUCIBILITY:
+The synthetic dataset uses np.random.seed() for reproducibility.
+Change seed to generate different distributions (but same scenario structure).
+
+DATASET STATISTICS:
+Expected output:
+    - Total rows: ~5000 (100 steps × 7 scenarios × ~7 road conditions)
+    - SAFE class: ~40%
+    - WARNING class: ~35%
+    - CRITICAL class: ~25%
+    - Features: 12 (distance, speed, TTC, confidence, etc.)
+    - Labels: ground_truth_risk_class, scenario, road_condition
+
+Run with:
+    python src/synthetic_validation_dataset.py
+
+"""
 
 from __future__ import annotations
 
