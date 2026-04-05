@@ -34,8 +34,12 @@ def extended_ttc(distance_cm: float, speed_kmh: float, decel_ms2: float = 5.0) -
     speed_ms = max(speed_kmh, 0.0) / 3.6
     if speed_ms <= 0.01:
         return 99.0
-    disc = speed_ms * speed_ms + 2.0 * decel_ms2 * distance_m
-    return max(0.0, (-speed_ms + math.sqrt(max(disc, 0.0))) / decel_ms2)
+    if decel_ms2 <= 0.01:
+        return distance_m / speed_ms
+    disc = speed_ms * speed_ms - 2.0 * decel_ms2 * distance_m
+    if disc < 0.0:
+        return 99.0
+    return max(0.0, (speed_ms - math.sqrt(disc)) / decel_ms2)
 
 
 def safe_cruise(rng: np.random.Generator) -> List[Dict[str, float]]:
@@ -45,6 +49,7 @@ def safe_cruise(rng: np.random.Generator) -> List[Dict[str, float]]:
     speed_kmh = 18.0
     for step in range(100):
         distance_cm -= 25.0 + rng.normal(0, 2.0)
+        distance_cm = max(distance_cm, 5.0)
         speed_kmh = max(12.0, min(24.0, speed_kmh + rng.normal(0, 0.4)))
         ttc_basic = (distance_cm / 100.0) / max(speed_kmh / 3.6, 0.1)
         ttc_ext = extended_ttc(distance_cm, speed_kmh)
@@ -54,7 +59,7 @@ def safe_cruise(rng: np.random.Generator) -> List[Dict[str, float]]:
         rows[-1]["scenario"] = "safe_cruise"
         rows[-1]["ground_truth_risk_class"] = risk_class
         rows[-1]["phase"] = "steady"
-        timestamp_ms += 250
+        timestamp_ms += 200
     return rows
 
 
@@ -75,7 +80,7 @@ def slow_closing(rng: np.random.Generator) -> List[Dict[str, float]]:
         rows[-1]["scenario"] = "slow_closing"
         rows[-1]["ground_truth_risk_class"] = risk_class
         rows[-1]["phase"] = "closing"
-        timestamp_ms += 250
+        timestamp_ms += 200
     return rows
 
 
@@ -86,6 +91,7 @@ def fast_collision(rng: np.random.Generator) -> List[Dict[str, float]]:
     speed_kmh = 42.0
     for step in range(90):
         distance_cm -= max((speed_kmh / 3.6) * 0.25 * 100.0, 5.0)
+        distance_cm = max(distance_cm, 5.0)
         speed_kmh = max(25.0, speed_kmh + rng.normal(0, 0.6))
         ttc_basic = (distance_cm / 100.0) / max(speed_kmh / 3.6, 0.1)
         ttc_ext = extended_ttc(distance_cm, speed_kmh)
@@ -115,6 +121,7 @@ def sudden_braking(rng: np.random.Generator) -> List[Dict[str, float]]:
             speed_kmh = max(2.5, speed_kmh + rng.normal(0, 0.2))
             phase = "recovering"
         distance_cm -= max((speed_kmh / 3.6) * 0.25 * 100.0, 4.0)
+        distance_cm = max(distance_cm, 5.0)
         ttc_basic = (distance_cm / 100.0) / max(speed_kmh / 3.6, 0.1)
         ttc_ext = extended_ttc(distance_cm, speed_kmh)
         risk_class = classify_ttc(ttc_basic)
@@ -123,7 +130,7 @@ def sudden_braking(rng: np.random.Generator) -> List[Dict[str, float]]:
         rows[-1]["scenario"] = "sudden_braking"
         rows[-1]["ground_truth_risk_class"] = risk_class
         rows[-1]["phase"] = phase
-        timestamp_ms += 250
+        timestamp_ms += 200
     return rows
 
 
@@ -150,7 +157,7 @@ def noisy_sensor(rng: np.random.Generator) -> List[Dict[str, float]]:
         rows[-1]["phase"] = "noisy"
         rows[-1]["latent_distance_cm"] = round(latent_distance_cm, 2)
         rows[-1]["latent_speed_kmh"] = round(latent_speed_kmh, 2)
-        timestamp_ms += 250
+        timestamp_ms += 200
     return rows
 
 
@@ -169,6 +176,7 @@ def wet_road_shift(rng: np.random.Generator) -> List[Dict[str, float]]:
             speed_kmh = max(16.0, speed_kmh + rng.normal(0, 0.3))
             phase = "wet_approach"
         distance_cm -= max((speed_kmh / 3.6) * 0.25 * 100.0, 5.0)
+        distance_cm = max(distance_cm, 5.0)
         ttc_basic = (distance_cm / 100.0) / max(speed_kmh / 3.6, 0.1)
         ttc_ext = extended_ttc(distance_cm, speed_kmh, decel_ms2=4.0)
         risk_class = classify_ttc(ttc_basic, critical=wet_critical, warning=wet_warning)
@@ -179,7 +187,7 @@ def wet_road_shift(rng: np.random.Generator) -> List[Dict[str, float]]:
         rows[-1]["phase"] = phase
         rows[-1]["wet_warning_threshold_s"] = wet_warning
         rows[-1]["wet_critical_threshold_s"] = wet_critical
-        timestamp_ms += 250
+        timestamp_ms += 200
     return rows
 
 
@@ -200,12 +208,23 @@ def build_dataset(seed: int = 42) -> pd.DataFrame:
         rows.extend(builder(rng))
 
     df = pd.DataFrame(rows)
+    
+    # Compute ML features directly on the DataFrame
+    df["v_host"] = df["speed_kmh"]
+    df["v_closing"] = (df["distance_cm"] / 100.0) / df["ttc_basic"].clip(lower=0.1)
+    df["a_decel"] = df.apply(lambda row: 4.0 if row.get("scenario") == "wet_road_threshold_shift" else 5.0, axis=1)
+    df["road_flag"] = df["scenario"].apply(lambda s: 1.0 if s == "wet_road_threshold_shift" else 0.0)
+
     ordered_columns = [
         "timestamp_ms",
         "distance_cm",
         "speed_kmh",
         "ttc_basic",
         "ttc_ext",
+        "v_host",
+        "v_closing",
+        "a_decel",
+        "road_flag",
         "risk_class",
         "confidence",
         "scenario",

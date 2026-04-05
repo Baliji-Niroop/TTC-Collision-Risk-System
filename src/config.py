@@ -62,7 +62,7 @@ DASHBOARD_CONFIG = {
     "page_icon": "🚗",
     "layout": "wide",
     "max_buffer_points": 120,
-    "refresh_interval_sec": 0.6,
+    "refresh_interval_sec": 0.2,
     "log_display_rows": 30,
 }
 
@@ -79,7 +79,7 @@ SIMULATOR_CONFIG = {
     "initial_distance_m": 40.0,
     "closing_speed_kmh": 15.0,
     "deceleration_ms2": 5.0,
-    "loop_dt": 0.3,
+    "loop_dt": 0.2,
     "reset_distance_m": 0.3,
 }
 

@@ -2,3 +2,4 @@ Adafruit GFX Library
 Adafruit SSD1306
 Adafruit MPU6050
 Adafruit Unified Sensor
+Adafruit VL53L1X

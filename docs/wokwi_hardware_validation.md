@@ -16,9 +16,11 @@ The Wokwi `esp32-devkit-v1` part uses `Dxx` labels in `diagram.json`. The valida
 - OLED `GND` -> `GND`
 - OLED `SDA` -> `D21`
 - OLED `SCL` -> `D22`
-- SAFE LED -> `D25`
-- WARNING LED -> `D26`
-- CRITICAL LED -> `D27`
+- SAFE LED 1 -> `D25`
+- SAFE LED 2 -> `D26`
+- WARNING LED 1 -> `D27`
+- WARNING LED 2 -> `D14`
+- CRITICAL LED -> `D12`
 - Buzzer positive -> `D32`
 - Buzzer negative -> `GND`
 

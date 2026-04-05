@@ -59,10 +59,10 @@ Current limitation: `firmware/sensors.h` uses simulated distance and fixed speed
 
 | Topic | Legacy/Overstated Claim | Current Code Reality |
 |---|---|---|
-| Sensor fusion | Weighted multi-sensor fusion is active | Not implemented in firmware runtime |
-| Kalman filtering | Implemented for noise suppression | Not present in current firmware/runtime path |
-| Speed source | Real encoder-based speed integrated | Firmware currently uses default fixed speed |
-| Deceleration source | Real IMU deceleration integrated | Firmware uses default deceleration constant |
+| Sensor fusion | Weighted multi-sensor fusion is active | Implemented in `sensors.h` (0.4×US + 0.6×LiDAR) |
+| Kalman filtering | Implemented for noise suppression | Active 1D Kalman Filter running on distance reads |
+| Speed source | Real encoder-based speed integrated | Speed derived from 3-read circular buffer (200ms) |
+| Deceleration source | Real IMU deceleration integrated | MPU6050 Acceleration X-axis mapped to TTC Ext |
 | Hardware validation | Physical stack validated end-to-end | Wokwi validated; physical validation pending |
 
 ## 6. Gaps and Risks

@@ -19,7 +19,10 @@ import pandas as pd
 from alerts import check_and_alert
 from analytics import SessionAnalytics, calculate_collision_probability, recommend_action
 from config import DATA_PATH, LOG_DIR, RISK_LABELS
-from ml_inference import load_model, predict_risk_with_confidence
+try:
+    from ml.inference import load_model, predict_risk_with_confidence
+except Exception:  # pragma: no cover - compatibility fallback
+    from ml_inference import load_model, predict_risk_with_confidence
 from telemetry_schema import format_packet, parse_packet
 from validators import validate_csv_line
 

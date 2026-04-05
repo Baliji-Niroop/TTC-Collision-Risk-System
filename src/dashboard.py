@@ -373,11 +373,13 @@ def ml_predict(row: dict) -> int:
         close_vel = d_m / max(ttc, 0.1)     # Approximate closing velocity (m/s)
 
         feature_dict = {
-            "speed": spd,
-            "distance": d_m,
-            "closing_vel": close_vel,
-            "ttc": ttc,
-            "road": 0
+            "v_host": spd,
+            "distance": d_m,  # Note: training feature list says ttc_basic, ttc_ext, v_host, v_closing, a_decel, road_flag
+            "v_closing": close_vel,
+            "ttc_basic": ttc,
+            "ttc_ext": row.get("ttc_ext", ttc),
+            "a_decel": 5.0,
+            "road_flag": 0
         }
 
         # Align to expected features if stored; else default
@@ -386,7 +388,7 @@ def ml_predict(row: dict) -> int:
         elif hasattr(model, "feature_names_in_"):
             expected_cols = list(model.feature_names_in_)
         else:
-            expected_cols = ["speed", "distance", "closing_vel", "ttc", "road"]
+            expected_cols = ["ttc_basic", "ttc_ext", "v_host", "v_closing", "a_decel", "road_flag"]
 
         features = pd.DataFrame([{col: feature_dict.get(col, 0) for col in expected_cols}], columns=expected_cols)
 

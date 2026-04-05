@@ -114,37 +114,44 @@ if __name__ == "__main__":
         logger.info(f"Output file: {DATA_FILE}")
         logger.info(f"Config: Initial distance={INITIAL_DISTANCE_M}m, Speed={CLOSING_SPEED_KMH} km/h")
 
-    distance_m = INITIAL_DISTANCE_M
-    t_ms = 0    # Simulated timestamp in milliseconds
+    import random
+    sim_t = 0
+    sim_d = INITIAL_DISTANCE_M / 4.0 # about 10m
+    sim_v = CLOSING_SPEED_KMH / 3.6 # initial speed
 
     try:
         while True:
-            # Convert closing speed from km/h to m/s for physics calculations
-            v_ms = CLOSING_SPEED_KMH / 3.6
+            sim_t += 1
+            dt = LOOP_DT
+            
+            # Sine wave velocity profile
+            target_v = 3.5 * math.sin(sim_t * 0.07) + random.gauss(0, 0.1)
+            sim_v += (target_v - sim_v) * 0.2
+            sim_v = max(-2.0, min(sim_v, 8.0))
+            
+            sim_d -= sim_v * dt
+            
+            if sim_d < 0.3:
+                sim_d = random.uniform(6.0, 10.0)
+                sim_v = random.uniform(0.5, 2.5)
+                print("[Reset] Obstacle repositioned")
+                if logger: logger.info("Obstacle reset")
+                
+            if sim_d > 15.0:
+                sim_v = max(sim_v, 0.5)
 
-            # Reduce distance by the amount travelled in one time step
-            distance_m -= v_ms * LOOP_DT
-
-            # Near-collision reset: if the vehicle is within 0.3 m of the
-            # obstacle, reset the distance to simulate a fresh approach.
-            if distance_m <= 0.3:
-                distance_m = INITIAL_DISTANCE_M
-                print("[Reset] Obstacle repositioned to 40 m")
-                if logger:
-                    logger.info("Obstacle reset")
-
+            distance_m = sim_d
             distance_cm = distance_m * 100.0
-            v_kmh = CLOSING_SPEED_KMH
+            
+            v_close = max(sim_v, 0.0)
+            v_kmh = abs(sim_v) * 3.6
 
             # Calculate both TTC variants
-            ttc_basic = distance_m / v_ms if v_ms > 0.1 else 99.0
-            ttc_ext   = compute_ttc_extended(distance_m, v_ms, DECEL_MS2)
+            ttc_basic = distance_m / v_close if v_close > 0.1 else 99.0
+            ttc_ext   = compute_ttc_extended(distance_m, v_close, DECEL_MS2)
 
-            # Classify risk and compute a synthetic confidence score.
-            # Confidence decreases when the two TTC estimates diverge.
             risk_class = classify_risk(ttc_basic)
-            conf = round(1.0 - abs(ttc_basic - ttc_ext) / (ttc_basic + 0.01) * 0.3, 2)
-            conf = max(0.5, min(1.0, conf))
+            conf = round(random.uniform(0.76, 0.99), 2)
 
             packet = canonical_row(t_ms, distance_cm, v_kmh, ttc_basic, ttc_ext, risk_class, conf)
             line = format_packet(packet)
