@@ -29,6 +29,28 @@ python -m pip install --upgrade pip
 python -m pip install -r config/requirements.txt
 ```
 
+### Step 1b: Install Arduino Libraries (for Firmware Only)
+
+If you plan to flash firmware to real hardware, install the required Arduino libraries in Arduino IDE:
+
+**File → Preferences → Additional Boards Manager URLs**, add:
+```
+https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+```
+
+Then **Tools → Board Manager** and install:
+- **esp32** by Espressif Systems (latest version)
+
+Then **Sketch → Include Library → Manage Libraries** and install these (search each one):
+- **Adafruit SSD1306** by Adafruit
+- **Adafruit GFX Library** by Adafruit
+- **Adafruit MPU6050** by Adafruit (only needed if `USE_MPU6050 = 1` in firmware/config/config.h)
+
+After installation, open `TTC.ino` in Arduino IDE:
+- **Tools → Board** → Select "ESP32 Dev Module"
+- **Tools → Port** → Select your COM port (when ESP32 is connected via USB)
+- **Ctrl+R** to compile and verify no errors
+
 ### Step 2: Run the dashboard
 ```bash
 run_dashboard.bat    # Windows

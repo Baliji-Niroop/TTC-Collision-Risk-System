@@ -183,4 +183,40 @@ const int LED_RED = 29;
 #define DEFAULT_DISTANCE_CM 400.0f
 #endif
 
+// ============================================
+// FEATURE FLAGS
+// ============================================
+// Set to 1 to enable, 0 to disable
+
+#define USE_MPU6050     1
+#define USE_VL53L1X     0   // set to 1 only if you buy the VL53L1X LIDAR
+
+// Uncomment to activate the decision tree classifier
+// #define ENABLE_ML_CLASSIFIER
+
+// ============================================
+// C++ CONFIG NAMESPACES
+// ============================================
+// Required by ml_classifier.h, sensor_fusion.h, ttc_calculator.h, alert_controller.h
+// These wrap scalar #defines into type-safe namespace structs
+
+namespace TTCConfig {
+    static const float TTC_SAFE_THRESHOLD_S    = TTC_SAFE_THRESHOLD;
+    static const float TTC_WARNING_THRESHOLD_S = TTC_WARNING_S;
+    static const float MIN_CLOSING_VELOCITY_MS = MIN_VELOCITY_MS;
+}
+
+namespace FusionConfig {
+    static const float US_WEIGHT                    = FUSION_US_WEIGHT;
+    static const float LIDAR_WEIGHT                 = FUSION_LIDAR_WEIGHT;
+    static const uint32_t LAST_GOOD_READING_TIMEOUT_MS = SENSOR_FALLBACK_TIME_MS;
+}
+
+namespace SystemConfig {
+    static const uint8_t DISTANCE_HISTORY_SIZE = 3;
+    static const uint16_t BUZZER_WARNING_FREQ_HZ  = 1000;
+    static const uint16_t BUZZER_CRITICAL_FREQ_HZ = 2500;
+    static const uint32_t BUZZER_PULSE_MS         = 500;
+}
+
 #endif // CONFIG_H

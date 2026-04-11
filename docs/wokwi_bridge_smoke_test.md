@@ -2,6 +2,20 @@
 
 Use this quick check to confirm the bridge can validate and forward canonical packets.
 
+## Prerequisites: Export Compiled Binaries
+
+Before running Wokwi simulation, compile the firmware and export binaries:
+
+1. **Open Arduino IDE** and load `TTC.ino`
+2. **Select board**: Tools → Board → ESP32 Dev Module
+3. **Verify compilation**: Ctrl+R (should show "Compilation complete")
+4. **Export binary**: Sketch → Export Compiled Binary
+5. **Copy files** to project root:
+   - TTC.ino.bin → `build/TTC.ino.bin`
+   - TTC.ino.elf → `build/TTC.ino.elf`
+
+The `wokwi.toml` will use these files. If they're missing, Wokwi cannot start.
+
 ## Required environment
 
 `run_wokwi_bridge.bat` uses these variables:

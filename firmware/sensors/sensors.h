@@ -43,8 +43,8 @@ static KalmanFilter1D kalmanFilter;
 static float currentDistanceCm = DEFAULT_DISTANCE_CM;
 
 // Encoder-based speed measurement
-volatile long encoderPulses = 0;
-unsigned long lastEncoderTime = 0;
+extern volatile long encoderPulses;
+extern unsigned long lastEncoderTime;
 float hostSpeedKmh = 0.0f;
 
 // ============================================

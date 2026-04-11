@@ -17,6 +17,10 @@ bool imuReady = false;
 float currentDecelMs2 = DEFAULT_DECEL_MS2;
 unsigned long previousSampleMs = 0;
 
+// Encoder state (defined here, declared as extern in sensors.h)
+volatile long encoderPulses = 0;
+unsigned long lastEncoderTime = 0;
+
 // ============================================
 // OUTPUT CONTROL (LED + BUZZER)
 // ============================================
