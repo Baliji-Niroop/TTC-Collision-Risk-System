@@ -67,6 +67,8 @@ Thumbs.db
 desktop.ini
 
 # ---------- Build / distribution ----------
+# Note: build/ directory holds compiled Arduino binaries (TTC.ino.bin, TTC.ino.elf)
+# These are NOT committed; export from Arduino IDE and place in build/ before Wokwi simulation
 build/
 dist/
 *.egg-info/
