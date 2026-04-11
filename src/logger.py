@@ -1,6 +1,8 @@
 """
-logger.py
-Centralized logging setup with file rotation and console output.
+Logging Setup for the TTC System
+
+This module configures logging to show messages both on screen and in a log file.
+All system events are recorded here for debugging and analysis.
 """
 
 import logging

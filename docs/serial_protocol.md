@@ -63,7 +63,7 @@ Firmware must emit packets with this exact format string and order:
 timestamp_ms,distance_cm,speed_kmh,ttc_basic,ttc_ext,risk_class,confidence\n
 ```
 
-Reference implementation: `firmware/serial_protocol.h` -> `emitTelemetryPacket(...)`.
+Reference implementation: `firmware/config/serial_protocol.h` (`emitTelemetryPacket(...)`), used by `firmware/main.ino`.
 
 ## Current threshold conventions
 
@@ -109,7 +109,7 @@ Before the first ESP32 test, confirm:
 - `src/validators.py`
 - `src/config.py`
 - `src/serial_simulator.py`
-- `src/ml_inference.py`
+- `ml/inference/__init__.py`
 - `src/replay_runner.py`
 - `src/synthetic_validation_dataset.py`
 - `validation/evaluate_synthetic.py`

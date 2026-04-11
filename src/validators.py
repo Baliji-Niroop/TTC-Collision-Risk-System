@@ -1,7 +1,9 @@
 """
-validators.py
-Validates and sanitizes incoming telemetry data.
-Detects anomalies, rejects malformed rows, and bootstraps safety features.
+Data Validation Module
+
+Checks incoming sensor data for quality and correctness.
+Detects problems like out-of-range values, anomalies, and formatting errors.
+Automatically fixes minor issues when possible.
 """
 
 from typing import Optional, Dict, Any
@@ -116,7 +118,7 @@ def sanitize_telemetry_data(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         logger.error(f"Data type error during validation: {e}")
         return None
     except Exception as e:
-        logger.error(f"Unexpected error during validation: {e}")
+        logger.error(f"Unexpected error during validation: {e}", exc_info=True)
         return None
 
 
@@ -182,8 +184,11 @@ def detect_anomalies(data_buffer: list) -> Dict[str, Any]:
             "anomaly_count": len(anomalies)
         }
         
+    except (ValueError, ZeroDivisionError) as e:
+        logger.error(f"Calculation error during anomaly detection: {e}")
+        return {"anomalies": [], "error": str(e)}
     except Exception as e:
-        logger.error(f"Error during anomaly detection: {e}")
+        logger.error(f"Unexpected error during anomaly detection: {e}", exc_info=True)
         return {"anomalies": [], "error": str(e)}
 
 
@@ -207,8 +212,14 @@ def validate_csv_line(line: str) -> Optional[Dict[str, Any]]:
         
         return sanitize_telemetry_data(row)
         
-    except (ValueError, IndexError) as e:
-        logger.error(f"CSV parsing error: {e}")
+    except ValueError as e:
+        logger.error(f"CSV parsing error - invalid data format: {e}")
+        return None
+    except IndexError as e:
+        logger.error(f"CSV parsing error - field index out of range: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error parsing CSV line: {e}", exc_info=True)
         return None
 
 
@@ -233,6 +244,9 @@ try:
     SAFETY_FEATURES_ENABLED = True
     logger.info("Advanced safety features initialized")
     
-except ImportError:
+except ImportError as e:
     SAFETY_FEATURES_ENABLED = False
-    logger.warning("Safety features module not found - advanced features disabled")
+    logger.warning(f"Safety features module not found - advanced features disabled: {e}")
+except Exception as e:
+    SAFETY_FEATURES_ENABLED = False
+    logger.error(f"Unexpected error initializing safety features: {e}", exc_info=True)

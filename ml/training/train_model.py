@@ -1,18 +1,3 @@
-import os
-import sys
-import pandas as pd
-import numpy as np
-from pathlib import Path
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.model_selection import cross_val_score, train_test_split
-from sklearn.metrics import classification_report, confusion_matrix
-import joblib
-
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(BASE_DIR))
-
-from src.config import MODEL_PATH, DATASET_DIR
 """
 train_model.py - ML Model Training & C++ Code Generation
 
@@ -89,11 +74,56 @@ Outputs:
     - firmware/ml_classifier/ml_classifier.h (Decision Tree for ESP32)
 """
 
+import os
+import sys
+from typing import List
+import pandas as pd
+import numpy as np
+from numpy.typing import NDArray
+from pathlib import Path
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.model_selection import cross_val_score, train_test_split
+from sklearn.metrics import classification_report, confusion_matrix
+import joblib
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(BASE_DIR))
+
+from src.config import MODEL_PATH, DATASET_DIR
+
 CSV_PATH = DATASET_DIR / "synthetic_ttc_validation.csv"
 HEADER_PATH = BASE_DIR / "firmware" / "ml_classifier" / "ml_classifier.h"
 
-def _tree_to_c(tree, feature_names):
-    """Generate C++ string representation of decision tree"""
+
+def _tree_to_c(tree: DecisionTreeClassifier, feature_names: List[str]) -> str:
+    """
+    Generate C++ code representation of decision tree classifier.
+    
+    Converts a trained scikit-learn DecisionTreeClassifier into executable C++ code
+    suitable for deployment on embedded systems (ESP32). The generated code is a 
+    nested if-else structure that mirrors the tree's decision nodes.
+    
+    The output is a complete C++ header file containing an inline function
+    'classifyRiskML' that accepts feature values and returns a risk class integer.
+    
+    Args:
+        tree: Trained scikit-learn DecisionTreeClassifier with learned decision rules
+        feature_names: List of feature column names in the same order as training data.
+                      Expected: ['ttc_basic', 'ttc_ext', 'v_host', 'v_closing', 
+                                'a_decel', 'road_flag']
+        
+    Returns:
+        String containing complete C++ header file code that implements the decision
+        tree as a series of nested if-else statements. Each leaf node returns a risk
+        class integer (0=SAFE, 1=WARNING, 2=CRITICAL).
+        
+    Example:
+        >>> dt = DecisionTreeClassifier(max_depth=4)
+        >>> dt.fit(X_train, y_train)
+        >>> cpp_code = _tree_to_c(dt, ['ttc_basic', 'ttc_ext', 'v_host'])
+        >>> # cpp_code contains: inline int classifyRiskML(...) { if (...) ... }
+    """
     tree_ = tree.tree_
     feature_name = [
         feature_names[i] if i != -2 else "undefined!"
@@ -121,7 +151,8 @@ inline int classifyRiskML(float ttc_basic, float ttc_ext, float v_host, float v_
     
     code = [header]
 
-    def recurse(node, depth):
+    def recurse(node: int, depth: int) -> None:
+        """Recursively traverse tree nodes and generate C++ if-else code."""
         indent = "    " * depth
         if tree_.feature[node] != -2:
             name = feature_name[node]
@@ -140,7 +171,37 @@ inline int classifyRiskML(float ttc_basic, float ttc_ext, float v_host, float v_
     code.append('    return 0;\n}')
     return "\n".join(code)
 
-def main():
+
+def main() -> None:
+    """
+    Main training pipeline for TTC risk classification models.
+    
+    Performs the following steps:
+    1. Loads synthetic validation dataset from CSV
+    2. Trains Random Forest classifier for cloud/dashboard deployment (high accuracy)
+    3. Trains Decision Tree classifier for edge/firmware deployment (memory-efficient)
+    4. Evaluates both models with cross-validation and classification metrics
+    5. Exports Random Forest to pickle file (MODELS/ml_model.pkl)
+    6. Generates C++ header from Decision Tree (firmware/ml_classifier/ml_classifier.h)
+    
+    Features used:
+        - ttc_basic: Basic time-to-collision (seconds)
+        - ttc_ext: Extended TTC with deceleration (seconds)
+        - v_host: Host vehicle speed (m/s)
+        - v_closing: Closing velocity (m/s)
+        - a_decel: Deceleration rate (m/s²)
+        - road_flag: Road condition (0=dry, 1=wet, 2=gravel, 3=ice)
+    
+    Target classes:
+        - 0: SAFE
+        - 1: WARNING
+        - 2: CRITICAL
+    
+    Exits with code 1 if dataset is not found.
+    
+    Returns:
+        None. Outputs are written to files and printed to console.
+    """
     if not CSV_PATH.exists():
         print(f"Error: dataset not found at {CSV_PATH}")
         print("Run `python src/synthetic_validation_dataset.py` first.")

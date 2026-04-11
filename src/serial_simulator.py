@@ -1,15 +1,12 @@
 """
 serial_simulator.py
-Generates synthetic TTC telemetry and writes it to LOGS/live_data.txt.
+Generates synthetic TTC telemetry and writes canonical packets to LOGS/live_data.txt.
 
-Simulates a vehicle approaching an obstacle at 15 km/h, starting from 40m.
-When distance drops to 0.3m (near-collision), the obstacle resets to 40m.
-The dashboard can read this file in Live Log mode.
+The simulator uses a dynamic speed profile and periodically resets the obstacle
+distance to keep producing varied SAFE/WARNING/CRITICAL events for the dashboard.
 
 Output format (7 CSV fields per line):
     timestamp_ms, distance_cm, speed_kmh, ttc_basic, ttc_ext, risk_class, confidence
-
-Usage:  python serial_simulator.py
 """
 
 import time
@@ -63,16 +60,37 @@ except ImportError:
         )
 
 
-def compute_ttc_extended(dist_m, v_ms, a=5.0):
+def compute_ttc_basic(distance_m: float, velocity_ms: float) -> float:
     """
-    Calculate the extended TTC assuming constant deceleration.
+    Calculate basic Time-to-Collision assuming constant closing speed.
+    
+    Args:
+        distance_m: Distance to obstacle in meters
+        velocity_ms: Closing velocity in meters/second
+        
+    Returns:
+        TTC in seconds, or 99.0 if velocity <= 0.1
+    """
+    if velocity_ms > 0.1:
+        return distance_m / velocity_ms
+    return 99.0
 
+
+def compute_ttc_extended(dist_m: float, v_ms: float, a: float = 5.0) -> float:
+    """
+    Calculate TTC with deceleration model.
+    
     Uses the kinematic equation:  d = v*t + 0.5*a*t^2
     Rearranged as a quadratic in t:  0.5*a*t^2 + v*t - d = 0
     Solution (positive root):  t = (-v + sqrt(v^2 + 2*a*d)) / a
-
-    Returns 99.0 when the discriminant is negative (physically impossible)
-    or the velocity is near-zero (no collision expected).
+    
+    Args:
+        dist_m: Distance to obstacle in meters
+        v_ms: Closing velocity in meters/second
+        a: Deceleration in m/s^2 (default: 5.0)
+    
+    Returns:
+        TTC in seconds, or 99.0 if physically impossible or velocity near-zero
     """
     disc = v_ms * v_ms + 2 * a * dist_m
     if disc < 0 or v_ms <= 0.01:
@@ -80,14 +98,20 @@ def compute_ttc_extended(dist_m, v_ms, a=5.0):
     return (-v_ms + math.sqrt(disc)) / a
 
 
-def classify_risk(ttc):
+def classify_risk(ttc: float) -> int:
     """
-    Classify collision risk based on TTC value.
-
+    Maps TTC to risk class (0=SAFE, 1=WARNING, 2=CRITICAL).
+    
     Risk levels:
         0 (SAFE)     : TTC > 3.0 seconds — no immediate danger
         1 (WARNING)  : 1.5 s < TTC <= 3.0 s — approaching danger zone
         2 (CRITICAL) : TTC <= 1.5 seconds — collision imminent
+    
+    Args:
+        ttc: Time-to-collision in seconds
+        
+    Returns:
+        Risk class: 0 (SAFE), 1 (WARNING), or 2 (CRITICAL)
     """
     if get_risk_class:
         return get_risk_class(ttc)
@@ -116,6 +140,7 @@ if __name__ == "__main__":
 
     import random
     sim_t = 0
+    t_ms = 0
     sim_d = INITIAL_DISTANCE_M / 4.0 # about 10m
     sim_v = CLOSING_SPEED_KMH / 3.6 # initial speed
 
@@ -147,7 +172,7 @@ if __name__ == "__main__":
             v_kmh = abs(sim_v) * 3.6
 
             # Calculate both TTC variants
-            ttc_basic = distance_m / v_close if v_close > 0.1 else 99.0
+            ttc_basic = compute_ttc_basic(distance_m, v_close)
             ttc_ext   = compute_ttc_extended(distance_m, v_close, DECEL_MS2)
 
             risk_class = classify_risk(ttc_basic)

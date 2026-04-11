@@ -1,5 +1,5 @@
 {
-  "dataset": "C:\\Users\\niroo\\Downloads\\TTC-PROJECT-FILES\\dataset\\synthetic_ttc_validation.csv",
+  "dataset": "C:\\Users\\niroo\\Downloads\\TTC\\dataset\\synthetic_ttc_validation.csv",
   "model_loaded": true,
   "rows": 610,
   "accuracy": 1.0,

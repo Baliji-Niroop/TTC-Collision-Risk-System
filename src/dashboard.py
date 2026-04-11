@@ -1,72 +1,19 @@
 """
-dashboard.py
-Main Streamlit application for the TTC Collision Risk system.
+Main Dashboard Application
 
-Displays live telemetry from three possible sources:
-  - Simulator (in-process synthetic data, no hardware needed)
-  - Live Log  (reads latest line from LOGS/live_data.txt)
-  - ESP32 Serial (direct USB serial, requires pyserial)
+The live display for the TTC system. Shows real-time metrics, charts, and alerts.
 
-Each cycle (~0.6s) fetches a telemetry row, runs it through the
-ML model (or falls back to physics-based TTC thresholds), and
-updates the charts, metrics, event log and session statistics.
+Data sources:
+  - Simulator: Generates fake data on your PC (for testing, no hardware needed)
+  - Live Log: Reads from LOGS/live_data.txt (updated by serial_reader.py)
+  - USB Serial: Direct connection to ESP32 vehicle (real hardware)
 
-Run with:  streamlit run dashboard.py
-"""
-"""
-dashboard.py - Live Telemetry Visualization Dashboard
-
-Niroop's Capstone Project
-
-EVOLUTION & REFACTORING JOURNEY:
-Week 1: Simple matplotlib plots - worked but ugly and slow
-Week 2: Switched to Streamlit - SO much cleaner! Much less code needed
-Week 3: Added multi-source support (simulator, file, serial)
-Week 4: Refactored to use config imports and validators
-Week 5: Current version - clean, modular, production-like
-
-DESIGN DECISIONS (and why):
-
-Three data sources for flexibility:
-    ✓ Simulator: Quick testing without hardware
-    ✓ Live Log: Review recent test run from file
-    ✓ Serial: Real-time from ESP32 board
-
-Updated every 0.6s instead of every frame:
-    - 10 Hz sensor loop → but Streamlit UI is slower
-    - 0.6s is smooth enough for human perception
-    - Too fast (every frame) = wasted rendering
-    - Too slow (>1s) = feels laggy
-
-STREAMLIT-SPECIFIC NOTES:
-- Everything re-runs entire script on each interaction!
-- Use @st.cache_data for data loading (massive speedup)
-- Use @st.cache_resource for model loading
-- Store state in st.session_state (persists across runs)
-
-PRODUCTION NOTES:
-- Currently logs to console + file (could add Plotly export)
-- CSS styling makes it professional-looking (spent way too long on this!)
-- Responsive to different screen sizes (mobile-friendly not priority)
-- Dark mode ready (Streamlit handles this automatically)
-
-DEBUGGING EXPERIENCES:
-- Streamlit cache gotcha: old data loaded from cache when data changes
-    Solution: File modification timestamp check
-- MultiIndex DataFrames crashed Streamlit display
-    Solution: Reset index before passing to st.dataframe()
-- CSV parsing failed on escaped commas
-    Solution: Delegated to pandas read_csv() with proper quoting
-
-TESTING STRATEGY:
-- Use simulator for quick iteration (10-second test, done)
-- Use file source for regression tests (replay historical data)
-- Use serial source for final validation with real board
-
-TODO: Add export to PDF report
-TODO: Add configurable thresholds via dropdown (currently hardcoded)
-TODO: Add live video feed integration if we get camera
-TODO: Performance optimization: Cache more aggressively
+Every second, the dashboard:
+  1. Reads new sensor data
+  2. Runs risk classification (with optional ML model)
+  3. Updates charts and metrics
+  4. Triggers alerts if needed
+  5. Records to session log
 """
 
 # Standard library
@@ -106,13 +53,22 @@ except ImportError as e:
     }
     DASHBOARD_CONFIG = {"max_buffer_points": 120, "refresh_interval_sec": 0.6}
     RISK_THRESHOLDS = {"critical": 1.5, "warning": 3.0}
-    get_logger = lambda x: None
+    class _NoOpLogger:
+        def debug(self, *args, **kwargs):
+            pass
+        def info(self, *args, **kwargs):
+            pass
+        def warning(self, *args, **kwargs):
+            pass
+        def error(self, *args, **kwargs):
+            pass
+    get_logger = lambda x: _NoOpLogger()
     validate_csv_line = lambda x: None
     check_and_alert = lambda x, y: False
     parse_packet = lambda x: None
 
 # Logging
-logger = get_logger(__name__) if get_logger else None
+logger = get_logger(__name__)
 
 # Dashboard constants
 MAX_POINTS = DASHBOARD_CONFIG.get("max_buffer_points", 120)
@@ -210,10 +166,18 @@ def _load_model():
             )
         if MODEL_PATH.exists():
             return joblib.load(MODEL_PATH)
+        else:
+            logger.warning(f"ML model file not found at {MODEL_PATH}")
+            return None
+    except ImportError as e:
+        logger.error(f"Missing required package for ML model: {e}")
+        return None
+    except FileNotFoundError as e:
+        logger.error(f"ML model file not found: {e}")
+        return None
     except Exception as e:
-        if logger:
-            logger.warning(f"ML model load failed: {e}")
-    return None
+        logger.error(f"Unexpected error loading ML model: {e}", exc_info=True)
+        return None
 
 
 model = _load_model()
@@ -333,13 +297,14 @@ def parse_csv_line(line: str) -> dict:
 
         return parse_packet(line)
         
-    except (ValueError, IndexError) as e:
-        if logger:
-            logger.error(f"Error parsing CSV line: {e}")
+    except ValueError as e:
+        logger.error(f"Invalid data format in CSV line: {e}")
+        return None
+    except IndexError as e:
+        logger.error(f"Field index out of range in CSV line: {e}")
         return None
     except Exception as e:
-        if logger:
-            logger.error(f"Unexpected error in parse_csv_line: {e}")
+        logger.error(f"Unexpected error parsing CSV line: {e}", exc_info=True)
         return None
 
 
@@ -356,9 +321,14 @@ def read_log_file():
         for line in reversed(lines):
             if line.strip():
                 return parse_csv_line(line.strip())
-    except FileNotFoundError:
+    except FileNotFoundError as e:
+        logger.warning(f"Live data file not found: {e}")
         return None
-    except Exception:
+    except PermissionError as e:
+        logger.error(f"Permission denied reading file: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error reading log file: {e}", exc_info=True)
         return None
     return None
 
@@ -368,12 +338,16 @@ def _open_serial(port: str):
     """Open a serial port connection, cached for the Streamlit session."""
     try:
         ser = serial.Serial(port, 115200, timeout=1)
-        if logger:
-            logger.info(f"Serial connection opened on {port}")
+        logger.info(f"Serial connection opened on {port}")
         return ser
+    except PermissionError as e:
+        logger.error(f"Permission denied opening serial port {port}: {e}")
+        return None
+    except FileNotFoundError as e:
+        logger.error(f"Serial port {port} not found: {e}")
+        return None
     except Exception as e:
-        if logger:
-            logger.error(f"Failed to open serial port {port}: {e}")
+        logger.error(f"Unexpected error opening serial port {port}: {e}", exc_info=True)
         return None
 
 
@@ -389,8 +363,7 @@ def read_serial(port: str) -> dict:
     try:
         ser = _open_serial(port)
         if ser is None or not ser.is_open:
-            if logger:
-                logger.warning("Serial port not open")
+            logger.warning(f"Serial port {port} not open")
             return None
         raw = ser.readline().decode("utf-8", errors="ignore").strip()
         if not raw:
@@ -401,9 +374,11 @@ def read_serial(port: str) -> dict:
             return validate_csv_line(raw)
         return parse_csv_line(raw)
         
+    except UnicodeDecodeError as e:
+        logger.error(f"Unicode decode error reading from serial: {e}")
+        return None
     except Exception as e:
-        if logger:
-            logger.error(f"Error reading from serial: {e}")
+        logger.error(f"Unexpected error reading from serial: {e}", exc_info=True)
         return None
 
 
@@ -419,13 +394,20 @@ def ml_predict(row: dict) -> int:
     If the model is not available (file missing or load failed), the
     function uses the packet-provided risk class.
     """
+    fallback_risk = row.get("risk_class", 0)
     if model is None:
-        return row["risk_class"]
+        return fallback_risk
     try:
         d_m       = row["distance_cm"] / 100.0
         spd       = row["speed_kmh"]
         ttc       = row["ttc_basic"]
-        close_vel = d_m / max(ttc, 0.1)     # Approximate closing velocity (m/s)
+        
+        # Check for division by zero
+        if ttc <= 0:
+            logger.warning(f"Invalid TTC value for closing velocity calculation: {ttc}")
+            close_vel = 0.0
+        else:
+            close_vel = d_m / max(ttc, 0.1)     # Approximate closing velocity (m/s)
 
         feature_dict = {
             "v_host": spd,
@@ -448,8 +430,15 @@ def ml_predict(row: dict) -> int:
         features = pd.DataFrame([{col: feature_dict.get(col, 0) for col in expected_cols}], columns=expected_cols)
 
         return int(model.predict(features)[0])
-    except Exception:
-        return row["risk_class"]
+    except KeyError as e:
+        logger.error(f"Missing required field for ML prediction: {e}")
+        return fallback_risk
+    except ValueError as e:
+        logger.error(f"Invalid value for ML prediction: {e}")
+        return fallback_risk
+    except Exception as e:
+        logger.error(f"Unexpected error during ML prediction: {e}", exc_info=True)
+        return fallback_risk
 
 
 # --- Sidebar ---
@@ -552,16 +541,22 @@ try:
             time.sleep(1)
             st.rerun()
 
+except FileNotFoundError as e:
+    logger.error(f"Data file not found: {e}")
+    st.error(f"Error: Data file not found - {e}")
+    st.stop()
+except ValueError as e:
+    logger.error(f"Invalid data encountered: {e}")
+    st.error(f"Error: Invalid telemetry data - {e}")
+    st.stop()
 except Exception as e:
-    if logger:
-        logger.error(f"Error fetching data: {e}")
+    logger.error(f"Unexpected error fetching data: {e}", exc_info=True)
     st.error(f"Error fetching telemetry: {e}")
     st.stop()
 
 # Validate row data before processing
 if row is None:
-    if logger:
-        logger.warning("Received None row data")
+    logger.warning("Received None row data")
     st.warning("No valid telemetry data received.")
     st.stop()
 
@@ -569,8 +564,7 @@ if row is None:
 required_fields = ["timestamp_ms", "ttc_basic", "speed_kmh", "distance_cm", "ttc_ext", "confidence", "risk_class"]
 missing_fields = [f for f in required_fields if f not in row]
 if missing_fields:
-    if logger:
-        logger.error(f"Missing required fields: {missing_fields}")
+    logger.error(f"Missing required fields in telemetry data: {missing_fields}")
     st.error(f"Malformed telemetry data: missing {missing_fields}")
     st.stop()
 
@@ -585,15 +579,15 @@ _latency_placeholder.markdown(f"**Pipeline latency:** {_t_pipeline_ms:.1f} ms")
 
 # Log anomalies if detected
 if row.get("anomaly_flag", False):
-    if logger:
-        logger.warning(f"Anomaly detected in telemetry: {row}")
+    logger.warning(f"Anomaly detected in telemetry: {row}")
     
 # Check for alerts
 try:
     check_and_alert(risk, row)
+except TypeError as e:
+    logger.error(f"Invalid data type in alert system: {e}")
 except Exception as e:
-    if logger:
-        logger.error(f"Error in alert system: {e}")
+    logger.error(f"Unexpected error in alert system: {e}", exc_info=True)
 
 # When the ML model is not available, apply the user-configured thresholds
 # for the physics-based fallback classifier.

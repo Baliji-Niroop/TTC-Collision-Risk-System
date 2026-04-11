@@ -1,6 +1,9 @@
 """
-alerts.py
-Handles alert triggering and throttling for critical/warning events.
+Alert Management System
+
+Detects risk events and sends alerts (to console, display, sound, etc).
+Prevents alert spam by throttling - doesn't alert on every single event,
+just when risk level changes or reaches critical threshold.
 """
 
 from typing import Optional, Callable

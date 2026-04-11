@@ -4,7 +4,7 @@
 #include "alerts/risk_classifier.h"
 #include "ml_classifier/ml_classifier.h"
 
-// Hardware Pin Definitions (matching diagram.json)
+// Hardware pin definitions (matching root diagram.json)
 static const uint8_t PIN_LED_SAFE1    = 25;
 static const uint8_t PIN_LED_SAFE2    = 26;
 static const uint8_t PIN_LED_WARNING1 = 27;

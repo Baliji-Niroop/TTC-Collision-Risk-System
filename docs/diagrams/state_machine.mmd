@@ -1,7 +1,0 @@
-stateDiagram-v2
-  [*] --> SAFE
-  SAFE --> WARNING: TTC <= 3.0 s
-  WARNING --> CRITICAL: TTC <= 1.5 s
-  CRITICAL --> WARNING: TTC recovers > 1.5 s
-  WARNING --> SAFE: TTC recovers > 3.0 s
-  CRITICAL --> SAFE: TTC recovers > 3.3 s

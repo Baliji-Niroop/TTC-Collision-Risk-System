@@ -111,10 +111,14 @@ const int LED_RED = 29;
 // ============================================
 // Based on ISO 15623 standard + textbook recommendations
 // Converted to seconds (rather than distance) because easier to reason about
+// NOTE: These values MUST stay synchronized with src/config.py RISK_THRESHOLDS
 
-#define TTC_SAFE_THRESHOLD 3.0      // seconds
-#define TTC_WARNING_THRESHOLD 1.5   // seconds
-// Below 1.5s = CRITICAL (no explicit define needed)
+#define TTC_CRITICAL_S 1.5      // seconds - TTC <= 1.5s is CRITICAL (highest danger)
+#define TTC_WARNING_S 3.0       // seconds - 1.5s < TTC <= 3.0s is WARNING
+#define TTC_SAFE_THRESHOLD 3.0  // seconds - TTC > 3.0s is SAFE
+
+// Legacy alias for backward compatibility
+#define TTC_WARNING_THRESHOLD TTC_WARNING_S
 
 // Road condition multipliers
 // These increase the threshold when roads are slippery

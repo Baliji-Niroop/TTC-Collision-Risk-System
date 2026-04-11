@@ -1,18 +1,16 @@
 """
-serial_reader.py
-Reads live telemetry from an ESP32 over USB serial.
+Serial Data Reader
 
-Does two things:
-  1. Writes the latest reading to LOGS/live_data.txt for the dashboard.
-  2. Saves the full session as a timestamped CSV when stopped (Ctrl+C).
+Connects to vehicle (ESP32) over USB serial port and reads live sensor data.
+Saves each reading to a log file for the dashboard.
+Also records the full session as a CSV when you stop the program (Ctrl+C).
 
-Expected format: 7 comma-separated fields per line
-    timestamp_ms, distance_cm, speed_kmh, ttc_basic, ttc_ext, risk_class, confidence
+Data format: timestamp_ms, distance_cm, speed_kmh, ttc_basic, ttc_ext, risk_class, confidence
 
-Usage:
-    python serial_reader.py                  # auto-detect port
-    python serial_reader.py --port COM3      # specify port
-    python serial_reader.py --list           # list available ports
+How to use:
+  python serial_reader.py                  # auto-find the serial port
+  python serial_reader.py --port COM3      # use specific port
+  python serial_reader.py --list           # show available ports
 """
 
 # Imports

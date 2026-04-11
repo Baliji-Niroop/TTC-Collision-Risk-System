@@ -1,7 +1,8 @@
 """
-config.py
-Centralized settings for the TTC Collision Risk system.
-All thresholds, paths, and tunable parameters live here.
+Configuration for the TTC (Time-To-Collision) Collision Risk System
+
+This file contains all settings, thresholds, and paths used by the system.
+Change values here to adjust how the system behaves without editing other files.
 """
 
 from pathlib import Path
@@ -19,7 +20,7 @@ LOG_DIR = ROOT_DIR / "LOGS"
 CONFIG_FILE = ROOT_DIR / "config.json"
 DATASET_DIR = ROOT_DIR / "dataset"
 VALIDATION_DIR = ROOT_DIR / "validation"
-REPORTS_DIR = ROOT_DIR / "docs" / "diagrams"
+REPORTS_DIR = VALIDATION_DIR / "outputs"
 
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 DATASET_DIR.mkdir(parents=True, exist_ok=True)
@@ -98,6 +99,24 @@ ANOMALY_CONFIG = {
     "min_ttc_possible": 0.1,
     "max_confidence_drop": 0.5,
     "outlier_zscore_threshold": 3.0,
+    # Physical constraints for VelocitySanityFilter
+    "max_vehicle_speed_kmh": 200.0,
+    "max_acceleration_ms2": 15.0,
+    "max_deceleration_ms2": 20.0,
+}
+
+# --- Physics and sensor parameters ---
+PHYSICS_CONFIG = {
+    "default_deceleration_ms2": 5.0,
+    "hysteresis_deadband_sec": 0.3,
+    "sensor_stuck_threshold": 5,
+}
+
+# --- Validation and testing defaults ---
+VALIDATION_CONFIG = {
+    "capture_duration_sec": 25,
+    "min_capture_rows": 30,
+    "random_seed": 42,  # For reproducible synthetic data
 }
 
 # --- Logging ---

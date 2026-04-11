@@ -6,36 +6,74 @@
 ttc_env/
 .venv/
 env/
+venv/
 
 # ---------- Python cache / compiled files ----------
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+*.so
+*.o
+*.egg
+*.egg-info/
 
 # ---------- Jupyter notebook checkpoints ----------
 .ipynb_checkpoints/
+*.ipynb
 
 # ---------- Logs and runtime data ----------
 LOGS/*.csv
 LOGS/live_data.txt
+LOGS/archive/
+LOGS/ttc_system.log
 *.log
 *.tmp
 
+# ---------- Generated models and data ----------
+MODELS/*.pkl
+MODELS/*.h5
+MODELS/*.joblib
+MODELS/*.onnx
+dataset/processed/
+dataset/exports/
+validation/outputs/
+*.pkl
+*.joblib
+*.h5
+
 # ---------- Streamlit cache and config ----------
 .streamlit/
+.streamlit/secrets.toml
+.streamlit/cache/
 
-# ---------- OS generated files ----------
-.DS_Store
-Thumbs.db
-desktop.ini
+# ---------- Environment and secrets ----------
+.env
+.env.local
+config.json
+secrets.json
+credentials.json
 
 # ---------- Editor / IDE settings ----------
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
+
+# ---------- OS generated files ----------
+.DS_Store
+Thumbs.db
+desktop.ini
 
 # ---------- Build / distribution ----------
 build/
 dist/
 *.egg-info/
+
+# ---------- Testing ----------
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+.tox/

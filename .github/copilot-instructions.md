@@ -11,7 +11,7 @@
 - Ingestion and normalization live in [src/serial_reader.py](src/serial_reader.py), [src/serial_simulator.py](src/serial_simulator.py), and [bridge/wokwi_serial_bridge.py](bridge/wokwi_serial_bridge.py).
 - UI and runtime analytics live in [src/dashboard.py](src/dashboard.py), [src/alerts.py](src/alerts.py), and [src/analytics.py](src/analytics.py).
 - Replay and validation workflows live in [src/replay_runner.py](src/replay_runner.py) and [validation](validation).
-- Optional ML inference must degrade gracefully to TTC threshold logic in [src/ml_inference.py](src/ml_inference.py) and [src/dashboard.py](src/dashboard.py).
+- Optional ML inference must degrade gracefully to TTC threshold logic in [ml/inference/__init__.py](ml/inference/__init__.py) and [src/dashboard.py](src/dashboard.py).
 
 ## Build and Test
 - Preferred Windows launcher (simulator + dashboard):
@@ -42,11 +42,5 @@
 - For Wokwi virtual COM usage, bridge write port and reader port must be paired but different ports.
 
 ## Docs
-- Project orientation: [docs/understanding.md](docs/understanding.md)
 - Telemetry contract: [docs/serial_protocol.md](docs/serial_protocol.md)
-- Current status: [docs/status.md](docs/status.md)
-- Hardware and integration checklist: [docs/integration_status.md](docs/integration_status.md)
 - Wokwi validation workflow: [docs/wokwi_bridge_smoke_test.md](docs/wokwi_bridge_smoke_test.md)
-- Virtual hardware details: [docs/wokwi_hardware_validation.md](docs/wokwi_hardware_validation.md)
-- Roadmap and rationale: [docs/software_first_roadmap.md](docs/software_first_roadmap.md)
-- Diagrams: [docs/diagrams/README.md](docs/diagrams/README.md)

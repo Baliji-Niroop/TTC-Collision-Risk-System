@@ -1,7 +1,10 @@
 """
-telemetry_schema.py
-Canonical TTC telemetry packet helpers used by simulator, serial reader,
-dashboard parsing, replay, and validation tooling.
+Telemetry Data Schema & Parser
+
+Defines the 7-field telemetry contract used throughout the system.
+Provides functions to parse raw CSV data into structured records.
+
+Format: timestamp_ms, distance_cm, speed_kmh, ttc_basic, ttc_ext, risk_class, confidence
 """
 
 from __future__ import annotations

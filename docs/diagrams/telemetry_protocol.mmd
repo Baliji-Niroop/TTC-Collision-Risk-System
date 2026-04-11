@@ -1,7 +1,0 @@
-sequenceDiagram
-  participant F as Firmware / Simulator
-  participant P as Python Parser
-  participant D as Dashboard
-  F->>P: timestamp_ms,distance_cm,speed_kmh,ttc_basic,ttc_ext,risk_class,confidence
-  P->>D: canonical telemetry dict
-  D->>D: validate, alert, render, log
