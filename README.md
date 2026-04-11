@@ -189,8 +189,8 @@ On Windows with virtual COM ports: Make sure the bridge write port and reader po
 
 ## Security & Community
 
-- **Report security issues privately** - see [SECURITY.md](SECURITY.md) for details
-- **Be respectful and inclusive** - see [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- Report security or safety concerns privately to project maintainers.
+- Follow respectful and professional collaboration norms in issues and pull requests.
 
 ## System Requirements
 
@@ -236,8 +236,13 @@ The system has five main stages:
 | `src/dashboard.py` | What you see on screen |
 | `src/alerts.py` | When and how alerts trigger |
 | `firmware/main.ino` | What runs on the vehicle |
-| `firmware/config.h` | Hardware settings |
+| `firmware/config/config.h` | Hardware settings |
 | `docs/serial_protocol.md` | Detailed protocol specification |
+
+Additional references:
+
+- `docs/PROJECT_MAP.md` (beginner-first folder map)
+- `docs/README.md` (documentation index)
 
 ## Common Tasks
 
