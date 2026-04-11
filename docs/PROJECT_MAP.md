@@ -48,8 +48,8 @@ Use this page when you want to quickly find where things belong.
 
 ## 8) Configuration
 
-- `config/requirements.txt`: Runtime Python dependencies
-- `config/requirements-dev.txt`: Dev/test dependencies
+- `requirements.txt`: Runtime Python dependencies
+- `requirements-dev.txt`: Dev/test dependencies
 
 ## Rule of Thumb
 

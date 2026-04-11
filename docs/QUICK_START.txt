@@ -11,7 +11,7 @@
 /src/              → Python application code
 /firmware/         → Arduino hardware code
 /bridge/           → Wokwi simulator connection
-/config/           → requirements.txt, requirements-dev.txt
+/                  → requirements.txt, requirements-dev.txt
 /docs/             → Documentation (README, guides, API reference)
 /validation/       → Testing scripts
 /tests/            → Unit tests
@@ -27,7 +27,7 @@
    python -m venv ttc_env
    ttc_env\Scripts\activate    (Windows)
    source ttc_env/bin/activate (Linux/Mac)
-   pip install -r config/requirements.txt
+   pip install -r requirements.txt
 
 2. Run dashboard:
    run_dashboard.bat

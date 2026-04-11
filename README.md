@@ -18,7 +18,7 @@ A clean, easy-to-understand collision risk prediction system that ingests sensor
 python -m venv ttc_env
 ttc_env\Scripts\activate
 python -m pip install --upgrade pip
-python -m pip install -r config/requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 **On Linux/Mac (Terminal):**
@@ -26,7 +26,7 @@ python -m pip install -r config/requirements.txt
 python -m venv ttc_env
 source ttc_env/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -r config/requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ### Step 1b: Install Arduino Libraries (for Firmware Only)
@@ -44,7 +44,9 @@ Then **Tools → Board Manager** and install:
 Then **Sketch → Include Library → Manage Libraries** and install these (search each one):
 - **Adafruit SSD1306** by Adafruit
 - **Adafruit GFX Library** by Adafruit
-- **Adafruit MPU6050** by Adafruit (only needed if `USE_MPU6050 = 1` in firmware/config/config.h)
+- **Adafruit MPU6050** by Adafruit (if MPU6050 support is enabled)
+
+⚠️ **Hardware configuration note**: use `firmware/pinmap.h` for active pin setup. `firmware/config/config.h` is maintained for compatibility.
 
 After installation, open `TTC.ino` in Arduino IDE:
 - **Tools → Board** → Select "ESP32 Dev Module"
@@ -54,7 +56,7 @@ After installation, open `TTC.ino` in Arduino IDE:
 ### Step 2: Run the dashboard
 ```bash
 run_dashboard.bat    # Windows
-./run_dashboard.sh   # Linux/Mac (if script exists)
+python -m streamlit run src/dashboard.py --server.headless true   # Linux/Mac
 ```
 
 The dashboard will start with simulated vehicle data. You should see real-time metrics on your terminal or web interface.
@@ -139,16 +141,16 @@ TTC/
 ├── bridge/                       # Wokwi simulator bridge
 │   └── wokwi_serial_bridge.py
 │
-├── config/                       # System configuration
-│   ├── requirements.txt          # Python packages
-│   └── requirements-dev.txt      # Dev packages
+├── config/                       # Shared package/module config
+│
+├── requirements.txt              # Python packages
+├── requirements-dev.txt          # Dev packages
 │
 ├── docs/                         # Documentation
 │   ├── README.md                 # Docs index
 │   ├── serial_protocol.md        # Protocol spec
 │   ├── wokwi_bridge_smoke_test.md # Simulator setup
-│   ├── api/                      # API reference
-│   └── guides/                   # How-to guides
+│   └── PROJECT_MAP.md            # Project map
 │
 ├── validation/                   # Testing scripts
 │   ├── protocol_contract_test.py # Verify data format
@@ -171,7 +173,7 @@ Want to make this better? Here's how:
 ```bash
 python -m venv ttc_env
 source ttc_env/bin/activate      # or: ttc_env\Scripts\activate on Windows
-pip install -r config/requirements-dev.txt
+pip install -r requirements-dev.txt
 ```
 
 ### Before submitting changes
