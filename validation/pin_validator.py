@@ -192,13 +192,13 @@ def validate_pins(strict: bool = False) -> int:
         diagram_value = diagram_pins.get(pin_name)
         
         if fw_value is None:
-            warnings.append(f"  ⚠ {pin_name}: defined in diagram but not in pinmap.h")
+            warnings.append(f"  [WARN] {pin_name}: defined in diagram but not in pinmap.h")
         elif diagram_value is None:
-            warnings.append(f"  ⚠ {pin_name}: defined in pinmap.h but not in diagram")
+            warnings.append(f"  [WARN] {pin_name}: defined in pinmap.h but not in diagram")
         elif fw_value != diagram_value:
-            errors.append(f"  ✗ {pin_name}: MISMATCH (pinmap.h={fw_value}, diagram={diagram_value})")
+            errors.append(f"  [ERROR] {pin_name}: MISMATCH (pinmap.h={fw_value}, diagram={diagram_value})")
         else:
-            print(f"  ✓ {pin_name}: {fw_value}")
+            print(f"  [OK] {pin_name}: {fw_value}")
     
     # Report results
     print()
