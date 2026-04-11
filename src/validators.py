@@ -7,10 +7,17 @@ Automatically fixes minor issues when possible.
 """
 
 from typing import Optional, Dict, Any
-from config import ANOMALY_CONFIG, SERIAL_CONFIG, TELEMETRY_FIELDS
-from logger import get_logger
+
+try:
+    from config import ANOMALY_CONFIG, SERIAL_CONFIG, TELEMETRY_FIELDS
+    from logger import get_logger
+    from telemetry_schema import parse_packet
+except ImportError:
+    from src.config import ANOMALY_CONFIG, SERIAL_CONFIG, TELEMETRY_FIELDS
+    from src.logger import get_logger
+    from src.telemetry_schema import parse_packet
+
 import statistics
-from telemetry_schema import parse_packet
 
 logger = get_logger(__name__)
 
@@ -134,8 +141,12 @@ def detect_anomalies(data_buffer: list) -> Dict[str, Any]:
     Returns:
         Dictionary with anomaly flags and statistics
     """
-    if not data_buffer or len(data_buffer) < 3:
-        return {"anomalies": []}
+    if not data_buffer:
+        return {"anomalies": [], "anomaly_count": 0}
+
+    # Confidence-drop checks require at least two samples.
+    if len(data_buffer) < 2:
+        return {"anomalies": [], "anomaly_count": 0}
     
     anomalies = []
     

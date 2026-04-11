@@ -4,12 +4,29 @@
 /**
  * config.h - Niroop's Collision Detection Project
  * 
+ * ⚠️ DEPRECATION NOTICE (Added April 11, 2026):
+ * 
+ * PIN DEFINITIONS IN THIS FILE ARE OUTDATED.
+ * =========================================
+ * 
+ * As of the Wokwi simulator rewrite, all pin definitions have been centralized
+ * in firmware/pinmap.h. This file contains legacy pin definitions that CONFLICT
+ * with the current design:
+ * 
+ * OUTDATED (config.h):          CURRENT (pinmap.h):
+ *   ENC_CH_A = 34                 PIN_ENCODER_CLK = 19 ✓
+ *   ENC_CH_B = 35                 PIN_ENCODER_DT = 23 ✓
+ *   LED_YELLOW_2 = 28             PIN_LED_WARNING2 = 14 ✓
+ *   LED_RED = 29                  PIN_LED_CRITICAL = 12 ✓
+ * 
+ * DO NOT use pin definitions from this file. Use firmware/pinmap.h instead.
+ * This file is kept for reference/historical purposes only.
+ * 
+ * ========================================================================
+ * 
  * Started: Nov 5, 2024
  * Last modified: Dec 10, 2024
- * 
- * This file holds all the constants. Originally had them scattered everywhere
- * in the sketch - Professor pointed out it was messy, so I moved them here.
- * Much better for testing different values quickly.
+ * Deprecated: April 11, 2026 (replaced by firmware/pinmap.h)
  */
 
 #include <stdint.h>
@@ -140,6 +157,11 @@ const int LED_RED = 29;
 
 #define SERIAL_BAUD 115200          // For Serial communication to Python dashboard
 
+// Canonical packet cadence used by firmware/main.ino loop guard.
+#ifndef PACKET_INTERVAL_MS
+#define PACKET_INTERVAL_MS LOOP_INTERVAL_MS
+#endif
+
 // ============================================
 // OTHER CONSTANTS
 // ============================================
@@ -155,5 +177,10 @@ const int LED_RED = 29;
 // Minimum closing velocity to consider "approaching"
 // Avoids division by zero in TTC calculation
 #define MIN_VELOCITY_MS 0.1
+
+// Default seeded distance used before first valid sensor fusion update.
+#ifndef DEFAULT_DISTANCE_CM
+#define DEFAULT_DISTANCE_CM 400.0f
+#endif
 
 #endif // CONFIG_H

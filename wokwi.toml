@@ -1,0 +1,6 @@
+[wokwi]
+version = 1
+# Wokwi VS Code extension expects compiled firmware/elf paths.
+firmware = "build/TTC.ino.bin"
+elf = "build/TTC.ino.elf"
+diagram = "diagram.json"
