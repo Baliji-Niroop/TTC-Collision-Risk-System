@@ -13,19 +13,30 @@ import json
 import math
 from pathlib import Path
 
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_BASELINE = BASE_DIR / "LOGS" / "replay_outputs" / "replay_summary.json"
-ARCHIVED_BASELINE = BASE_DIR / "LOGS" / "archive" / "replay_outputs" / "replay_summary.json"
+ARCHIVED_BASELINE = (
+    BASE_DIR / "LOGS" / "archive" / "replay_outputs" / "replay_summary.json"
+)
 
 RISK_LABELS = {0: "SAFE", 1: "WARNING", 2: "CRITICAL"}
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Compare Wokwi telemetry against replay baselines")
-    parser.add_argument("--input", required=True, help="Path to a canonical CSV captured from Wokwi")
-    parser.add_argument("--baseline", default=str(DEFAULT_BASELINE), help="Replay summary JSON used as the baseline")
-    parser.add_argument("--output", default=None, help="Optional path to write the comparison JSON")
+    parser = argparse.ArgumentParser(
+        description="Compare Wokwi telemetry against replay baselines"
+    )
+    parser.add_argument(
+        "--input", required=True, help="Path to a canonical CSV captured from Wokwi"
+    )
+    parser.add_argument(
+        "--baseline",
+        default=str(DEFAULT_BASELINE),
+        help="Replay summary JSON used as the baseline",
+    )
+    parser.add_argument(
+        "--output", default=None, help="Optional path to write the comparison JSON"
+    )
     return parser.parse_args()
 
 
@@ -88,11 +99,15 @@ def summarize(rows: list[dict]) -> dict:
         }
         mean_confidence = sum(confidences) / total
         start_slice = confidences[: max(1, total // 3)]
-        end_slice = confidences[-max(1, total // 3):]
+        end_slice = confidences[-max(1, total // 3) :]
         confidence_trend = {
             "start_mean": round(sum(start_slice) / len(start_slice), 4),
             "end_mean": round(sum(end_slice) / len(end_slice), 4),
-            "delta": round((sum(end_slice) / len(end_slice)) - (sum(start_slice) / len(start_slice)), 4),
+            "delta": round(
+                (sum(end_slice) / len(end_slice))
+                - (sum(start_slice) / len(start_slice)),
+                4,
+            ),
         }
     else:
         distribution = {label: 0.0 for label in RISK_LABELS.values()}
@@ -138,7 +153,8 @@ def main() -> int:
         deltas = {}
         for label in ("SAFE", "WARNING", "CRITICAL"):
             deltas[label] = round(
-                summary["risk_distribution"][label] - float(baseline["risk_distribution"].get(label, 0.0)),
+                summary["risk_distribution"][label]
+                - float(baseline["risk_distribution"].get(label, 0.0)),
                 1,
             )
         comparison["distribution_delta_vs_baseline"] = deltas

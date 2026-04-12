@@ -1,4 +1,4 @@
-# Development and Testing Dependencies for TTC Collision Risk System
+# Development dependencies for TTC
 # Install with: pip install -r requirements-dev.txt
 
 # Testing framework

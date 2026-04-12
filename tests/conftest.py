@@ -1,6 +1,7 @@
 """
 pytest configuration and shared fixtures for TTC project tests.
 """
+
 import pytest
 import sys
 from pathlib import Path
@@ -64,17 +65,19 @@ def mock_csv_file(tmp_path):
 def mock_model(tmp_path):
     """Create a mock ML model pickle file."""
     import joblib
-    
+
     # Simple mock classifier
     class MockClassifier:
         def predict(self, X):
             import numpy as np
+
             return np.array([0] * len(X))
-        
+
         def predict_proba(self, X):
             import numpy as np
+
             return np.array([[0.8, 0.15, 0.05]] * len(X))
-    
+
     model_file = tmp_path / "mock_model.pkl"
     joblib.dump(MockClassifier(), model_file)
     return model_file

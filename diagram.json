@@ -2,7 +2,7 @@
   "version": 1,
   "author": "TTC Project",
   "editor": "wokwi",
-  "description": "TTC Wokwi Simulator - Collision Detection System with Sonar, Encoder, LED Alert Bar, and IMU",
+  "description": "TTC Wokwi simulator with sonar, encoder, OLED, LEDs, buzzer, and IMU",
   "parts": [
     {
       "type": "board-esp32-devkit-v1",

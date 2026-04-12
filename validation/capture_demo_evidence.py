@@ -57,12 +57,22 @@ RISK_LABELS = {0: "SAFE", 1: "WARNING", 2: "CRITICAL"}
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Capture Wokwi bridge evidence assets")
-    parser.add_argument("--source", choices=["stdin", "websocket", "file"], default="stdin")
+    parser.add_argument(
+        "--source", choices=["stdin", "websocket", "file"], default="stdin"
+    )
     parser.add_argument("--ws-url", default=None, help="Wokwi serial websocket URL")
-    parser.add_argument("--input-file", default=None, help="Optional file containing canonical packets")
-    parser.add_argument("--duration-sec", type=int, default=25, help="Capture duration in seconds")
-    parser.add_argument("--min-rows", type=int, default=30, help="Minimum accepted canonical rows")
-    parser.add_argument("--session-name", default=None, help="Optional fixed session folder name")
+    parser.add_argument(
+        "--input-file", default=None, help="Optional file containing canonical packets"
+    )
+    parser.add_argument(
+        "--duration-sec", type=int, default=25, help="Capture duration in seconds"
+    )
+    parser.add_argument(
+        "--min-rows", type=int, default=30, help="Minimum accepted canonical rows"
+    )
+    parser.add_argument(
+        "--session-name", default=None, help="Optional fixed session folder name"
+    )
     return parser.parse_args()
 
 
@@ -75,7 +85,12 @@ def _extract_message_lines(message: str) -> List[str]:
     if text.startswith("{") and text.endswith("}"):
         try:
             payload = json.loads(text)
-            data = payload.get("data") or payload.get("line") or payload.get("payload") or ""
+            data = (
+                payload.get("data")
+                or payload.get("line")
+                or payload.get("payload")
+                or ""
+            )
             if isinstance(data, str):
                 return [line.strip() for line in data.splitlines() if line.strip()]
         except json.JSONDecodeError:
@@ -155,15 +170,25 @@ def save_csv(path: Path, headers: List[str], rows: List[dict]) -> None:
             writer.writerow({key: row.get(key) for key in headers})
 
 
-def save_trend_plot(path: Path, confidence_rows: List[dict], ttc_rows: List[dict]) -> None:
+def save_trend_plot(
+    path: Path, confidence_rows: List[dict], ttc_rows: List[dict]
+) -> None:
     fig, axes = plt.subplots(2, 1, figsize=(10, 7), sharex=True)
 
-    axes[0].plot([r["sample_index"] for r in confidence_rows], [r["confidence"] for r in confidence_rows], color="#1f77b4")
+    axes[0].plot(
+        [r["sample_index"] for r in confidence_rows],
+        [r["confidence"] for r in confidence_rows],
+        color="#1f77b4",
+    )
     axes[0].set_title("Confidence Trend")
     axes[0].set_ylabel("confidence")
     axes[0].grid(alpha=0.3)
 
-    axes[1].plot([r["sample_index"] for r in ttc_rows], [r["ttc_basic"] for r in ttc_rows], color="#d62728")
+    axes[1].plot(
+        [r["sample_index"] for r in ttc_rows],
+        [r["ttc_basic"] for r in ttc_rows],
+        color="#d62728",
+    )
     axes[1].set_title("TTC Basic Trend")
     axes[1].set_xlabel("sample_index")
     axes[1].set_ylabel("ttc_basic (s)")
@@ -277,37 +302,66 @@ def main() -> int:
 
     total = max(len(captured_rows), 1)
     risk_distribution = {
-        RISK_LABELS[k]: round((v / total) * 100.0, 1)
-        for k, v in risk_counts.items()
+        RISK_LABELS[k]: round((v / total) * 100.0, 1) for k, v in risk_counts.items()
     }
 
     confidence_values = [float(r["confidence"]) for r in captured_rows]
-    ttc_values = [float(r["ttc_basic"]) for r in captured_rows if math.isfinite(float(r["ttc_basic"]))]
+    ttc_values = [
+        float(r["ttc_basic"])
+        for r in captured_rows
+        if math.isfinite(float(r["ttc_basic"]))
+    ]
 
     confidence_summary = {
         "min": round(min(confidence_values), 4) if confidence_values else 0.0,
         "max": round(max(confidence_values), 4) if confidence_values else 0.0,
-        "mean": round(statistics.mean(confidence_values), 4) if confidence_values else 0.0,
-        "slope_per_sample": round(compute_linear_slope(confidence_values), 6) if confidence_values else 0.0,
+        "mean": (
+            round(statistics.mean(confidence_values), 4) if confidence_values else 0.0
+        ),
+        "slope_per_sample": (
+            round(compute_linear_slope(confidence_values), 6)
+            if confidence_values
+            else 0.0
+        ),
     }
 
     ttc_summary = {
         "min": round(min(ttc_values), 4) if ttc_values else 0.0,
         "max": round(max(ttc_values), 4) if ttc_values else 0.0,
         "mean": round(statistics.mean(ttc_values), 4) if ttc_values else 0.0,
-        "slope_per_sample": round(compute_linear_slope(ttc_values), 6) if ttc_values else 0.0,
+        "slope_per_sample": (
+            round(compute_linear_slope(ttc_values), 6) if ttc_values else 0.0
+        ),
     }
 
     save_csv(out_dir / "canonical_session.csv", CANONICAL_HEADERS, captured_rows)
-    save_csv(out_dir / "confidence_trend.csv", ["sample_index", "timestamp_ms", "confidence"], confidence_rows)
-    save_csv(out_dir / "ttc_trend.csv", ["sample_index", "timestamp_ms", "ttc_basic", "ttc_ext"], ttc_rows)
+    save_csv(
+        out_dir / "confidence_trend.csv",
+        ["sample_index", "timestamp_ms", "confidence"],
+        confidence_rows,
+    )
+    save_csv(
+        out_dir / "ttc_trend.csv",
+        ["sample_index", "timestamp_ms", "ttc_basic", "ttc_ext"],
+        ttc_rows,
+    )
     save_csv(
         out_dir / "alert_timeline.csv",
-        ["alert_time", "risk_class", "risk_label", "ttc", "distance", "speed", "message"],
+        [
+            "alert_time",
+            "risk_class",
+            "risk_label",
+            "ttc",
+            "distance",
+            "speed",
+            "message",
+        ],
         alert_rows,
     )
 
-    (out_dir / "risk_distribution.json").write_text(json.dumps(risk_distribution, indent=2), encoding="utf-8")
+    (out_dir / "risk_distribution.json").write_text(
+        json.dumps(risk_distribution, indent=2), encoding="utf-8"
+    )
 
     session_summary = {
         "session_id": session_id,
@@ -322,10 +376,14 @@ def main() -> int:
         "alerts_count": len(alert_rows),
         "output_dir": str(out_dir),
     }
-    (out_dir / "session_summary.json").write_text(json.dumps(session_summary, indent=2), encoding="utf-8")
+    (out_dir / "session_summary.json").write_text(
+        json.dumps(session_summary, indent=2), encoding="utf-8"
+    )
 
     if confidence_rows and ttc_rows:
-        save_trend_plot(out_dir / "confidence_ttc_trends.png", confidence_rows, ttc_rows)
+        save_trend_plot(
+            out_dir / "confidence_ttc_trends.png", confidence_rows, ttc_rows
+        )
     save_distribution_plot(out_dir / "risk_distribution.png", risk_distribution)
 
     print(json.dumps(session_summary, indent=2))

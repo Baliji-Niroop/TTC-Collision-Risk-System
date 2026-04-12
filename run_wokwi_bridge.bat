@@ -1,8 +1,6 @@
 @echo off
-REM ================================================================
-REM  TTC Wokwi Bridge Launcher
-REM  Starts bridge + optional stack using either .venv or ttc_env.
-REM ================================================================
+REM TTC Wokwi bridge launcher
+REM Starts bridge stack using .venv or ttc_env.
 
 cd /d "%~dp0"
 
@@ -36,13 +34,13 @@ echo       Done.
 echo.
 
 if "%WOKWI_SERIAL_WS_URL%"=="" (
-    echo [INFO] WOKWI_SERIAL_WS_URL is not set. Bridge will use stdin source.
+    echo [INFO] WOKWI_SERIAL_WS_URL not set. Bridge will use stdin source.
 )
 if "%WOKWI_BRIDGE_SERIAL_OUT%"=="" (
-    echo [INFO] WOKWI_BRIDGE_SERIAL_OUT is not set. COM forwarding disabled.
+    echo [INFO] WOKWI_BRIDGE_SERIAL_OUT not set. COM forwarding disabled.
 )
 if "%WOKWI_READER_PORT%"=="" (
-    echo [INFO] WOKWI_READER_PORT is not set. serial_reader launch may be skipped.
+    echo [INFO] WOKWI_READER_PORT not set. serial_reader launch may be skipped.
 )
 echo.
 

@@ -1,81 +1,76 @@
-# ================================================================
-#  TTC Collision Risk System — .gitignore
-# ================================================================
-
-# ---------- Python virtual environments ----------
+# Python virtual environments
 ttc_env/
 .venv/
 env/
 venv/
 
-# ---------- Python cache / compiled files ----------
+# Python cache / compiled files
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.so
-*.o
-*.egg
-*.egg-info/
+*.py[cod]
+*$py.class
 
-# ---------- Jupyter notebook checkpoints ----------
+# Test and type-check artifacts
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Notebook artifacts
 .ipynb_checkpoints/
 *.ipynb
 
-# ---------- Logs and runtime data ----------
-LOGS/*.csv
-LOGS/live_data.txt
-LOGS/archive/
-LOGS/ttc_system.log
+# Logs and runtime outputs
 *.log
 *.tmp
+LOGS/*
+!LOGS/.gitkeep
+!LOGS/archive/
+LOGS/archive/*
 
-# ---------- Generated models and data ----------
+# Generated validation outputs (keep folder marker if present)
+validation/outputs/*
+!validation/outputs/.gitkeep
+
+# Model and dataset generated artifacts
 MODELS/*.pkl
 MODELS/*.h5
 MODELS/*.joblib
 MODELS/*.onnx
 dataset/processed/
 dataset/exports/
-validation/outputs/
 *.pkl
 *.joblib
 *.h5
 
-# ---------- Streamlit cache and config ----------
-.streamlit/
+# Streamlit local settings/cache
 .streamlit/secrets.toml
 .streamlit/cache/
 
-# ---------- Environment and secrets ----------
+# Local environment and secrets
 .env
-.env.local
+.env.*
 config.json
 secrets.json
 credentials.json
 
-# ---------- Editor / IDE settings ----------
+# Editor / IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# ---------- OS generated files ----------
+# OS files
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# ---------- Build / distribution ----------
-# Note: build/ directory holds compiled Arduino binaries (TTC.ino.bin, TTC.ino.elf)
-# These are NOT committed; export from Arduino IDE and place in build/ before Wokwi simulation
+# Build and packaging artifacts
 build/
 dist/
+*.egg
 *.egg-info/
-
-# ---------- Testing ----------
-.pytest_cache/
-.coverage
-htmlcov/
-coverage.xml
-.tox/

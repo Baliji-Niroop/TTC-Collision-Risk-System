@@ -1,117 +1,103 @@
 # Serial Telemetry Protocol
 
-This document defines the packet format currently expected by the Python side of the TTC project.
+This document defines the canonical telemetry contract used by firmware and Python runtime components.
 
-If ESP32 firmware is written or updated it should match this format unless the Python parser is intentionally changed at the same time.
+## Contract Status
 
-This packet layout is now the canonical frozen telemetry schema for the simulator, serial reader, dashboard, replay runner, synthetic dataset generator, and future ESP32 firmware.
+- The protocol is frozen to exactly 7 CSV fields.
+- Field names, order, and units are mandatory.
+- Legacy aliases are not accepted.
 
-Strict mode is enabled: legacy aliases are not accepted.
+## Packet Format
 
-## Packet format
+Each message must be one line with exactly 7 comma-separated values:
 
-Each serial message must be one line of CSV with exactly 7 fields:
-
-```
+```text
 timestamp_ms,distance_cm,speed_kmh,ttc_basic,ttc_ext,risk_class,confidence
 ```
 
 Example:
 
-```
+```text
 1250,184.50,22.0,3.02,2.88,0,0.94
 ```
 
-## Field definitions
+## Field Definitions
 
-| Position | Field | Type | Unit | Meaning |
-|----------|-------|------|------|---------|
-| 1 | `timestamp_ms` | float or integer | ms | Sample timestamp in milliseconds |
-| 2 | `distance_cm` | float | cm | Current obstacle distance |
-| 3 | `speed_kmh` | float | km/h | Current closing speed |
-| 4 | `ttc_basic` | float | s | TTC using the constant-speed assumption |
-| 5 | `ttc_ext` | float | s | TTC using the extended deceleration-aware estimate |
-| 6 | `risk_class` | integer | — | `0` = SAFE, `1` = WARNING, `2` = CRITICAL |
-| 7 | `confidence` | float | 0.0–1.0 | Confidence score for the current reading |
+| Position | Field | Type | Unit | Description |
+| --- | --- | --- | --- | --- |
+| 1 | `timestamp_ms` | float or int | ms | Sample timestamp |
+| 2 | `distance_cm` | float | cm | Obstacle distance |
+| 3 | `speed_kmh` | float | km/h | Host or closing speed |
+| 4 | `ttc_basic` | float | s | Constant-speed TTC estimate |
+| 5 | `ttc_ext` | float | s | Extended TTC estimate |
+| 6 | `risk_class` | int | n/a | 0=safe, 1=warning, 2=critical |
+| 7 | `confidence` | float | 0.0-1.0 | Confidence score |
 
-## Parsing rules used by Python
+## Python Parsing Rules
 
-The current Python parser expects:
+Accepted rows must satisfy all rules below:
 
-- A comma-separated line.
 - Exactly 7 fields.
-- Numeric values in every field.
-- `risk_class` parseable as an integer.
-- `confidence` between `0.0` and `1.0`.
-- No alias field names (for example `risk_phys`, `v_closing_kmh`, `ttc_basic_s`, `speed_alias`).
+- Numeric values in all positions.
+- `risk_class` parseable as integer.
+- `confidence` in range `[0.0, 1.0]`.
+- No alias field names.
 
-Rows may be rejected if they contain:
+Rejected row examples:
 
-- The wrong number of fields.
+- Wrong field count.
 - Invalid numeric formatting.
 - Negative distance.
-- Impossible TTC values.
-- Unrealistic speed values.
-- Invalid confidence values.
-- Any legacy alias field names.
+- Invalid confidence value.
+- Protocol alias usage.
 
-## Firmware emitter lock
+## Firmware Emitter Requirement
 
-Firmware must emit packets with this exact format string and order:
+Firmware output must preserve exact order and newline termination:
 
 ```text
 timestamp_ms,distance_cm,speed_kmh,ttc_basic,ttc_ext,risk_class,confidence\n
 ```
 
-Reference implementation: `firmware/config/serial_protocol.h` (`emitTelemetryPacket(...)`), used by `firmware/main.ino`.
+Reference: `firmware/config/serial_protocol.h` and `firmware/main.ino`.
 
-## Current threshold conventions
+## Threshold Conventions
 
-The default TTC thresholds in the Python code are:
+- Critical: TTC <= 1.5 seconds
+- Warning: 1.5 < TTC <= 3.0 seconds
+- Safe: TTC > 3.0 seconds
 
-- **CRITICAL:** TTC ≤ 1.5 s.
-- **WARNING:** 1.5 < TTC ≤ 3.0 s.
-- **SAFE:** TTC > 3.0 s.
+If local firmware classification is enabled, values must remain synchronized with `src/config.py`.
 
-If the ESP32 computes `risk_class` locally it should follow the same thresholds unless the project is being updated everywhere together.
+## Firmware Handoff Checklist
 
-## Recommended firmware output rules
+1. Device emits exactly 7 values per line.
+2. Baud rate matches Python reader configuration.
+3. Distance unit is centimeters.
+4. Speed unit is km/h.
+5. `risk_class` only uses 0, 1, or 2.
+6. `confidence` stays within 0.0 to 1.0.
 
-- Send one complete line per reading.
-- End each packet with a newline.
-- Keep field order fixed.
-- Keep units fixed.
-- Do not add labels such as `dist=` or `ttc=`.
-- Do not add extra commas or extra fields.
-- If a value is unavailable, decide on a fallback convention before changing the protocol.
-
-## Recommended sampling guidance
-
-The software side is currently configured around a sub-second monitoring loop. A practical starting point is one packet every 200–500 ms.
-
-That is fast enough for dashboard updates without producing unnecessary serial noise during early testing.
-
-## Firmware handoff checklist
-
-Before the first ESP32 test, confirm:
-
-1. The board sends exactly 7 CSV values per line.
-2. The baud rate matches the Python configuration.
-3. Distances are in centimetres.
-4. Speed is in km/h.
-5. `risk_class` uses `0`, `1`, or `2` only.
-6. `confidence` stays in the range `0.0` to `1.0`.
-
-## Related files
+## Related Files
 
 - `src/telemetry_schema.py`
 - `src/serial_reader.py`
 - `src/validators.py`
 - `src/config.py`
 - `src/serial_simulator.py`
-- `ml/inference/__init__.py`
 - `src/replay_runner.py`
-- `src/synthetic_validation_dataset.py`
 - `validation/evaluate_synthetic.py`
-- `firmware/`
-- `README.md`
+- `firmware/config/serial_protocol.h`
+
+## Sync Impact
+
+Any protocol change requires synchronized updates in:
+
+- `firmware/main.ino`
+- `bridge/wokwi_serial_bridge.py`
+- `src/serial_reader.py`
+- `src/telemetry_schema.py`
+- `src/validators.py`
+- `validation/protocol_contract_test.py`
+- `docs/serial_protocol.md`

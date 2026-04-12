@@ -12,10 +12,10 @@ from pathlib import Path
 import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-from sklearn.metrics import classification_report, confusion_matrix
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+from sklearn.metrics import classification_report, confusion_matrix  # noqa: E402
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 SRC_DIR = ROOT_DIR / "src"
@@ -24,15 +24,16 @@ if str(ROOT_DIR) not in sys.path:
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from config import DATASET_DIR, VALIDATION_DIR, RISK_LABELS
-from ml.inference import load_model, predict_risk_with_confidence
-
+from config import DATASET_DIR, VALIDATION_DIR, RISK_LABELS  # noqa: E402
+from ml.inference import load_model, predict_risk_with_confidence  # noqa: E402
 
 DATASET_FILE = DATASET_DIR / "synthetic_ttc_validation.csv"
 OUTPUT_DIR = VALIDATION_DIR / "outputs"
 
 
-def false_alarm_rate(y_true: np.ndarray, y_pred: np.ndarray, positive_class: int = 2) -> float:
+def false_alarm_rate(
+    y_true: np.ndarray, y_pred: np.ndarray, positive_class: int = 2
+) -> float:
     negative_mask = y_true != positive_class
     if not np.any(negative_mask):
         return 0.0
@@ -45,7 +46,9 @@ def critical_recall(report_dict: dict) -> float:
     return float(report_dict.get("CRITICAL", {}).get("recall", 0.0))
 
 
-def save_confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, output_path: Path) -> None:
+def save_confusion_matrix(
+    y_true: np.ndarray, y_pred: np.ndarray, output_path: Path
+) -> None:
     labels = [0, 1, 2]
     matrix = confusion_matrix(y_true, y_pred, labels=labels)
     fig, ax = plt.subplots(figsize=(6, 5))
@@ -67,11 +70,15 @@ def save_confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, output_path: P
 
 
 def save_scenario_plot(df: pd.DataFrame, output_path: Path) -> None:
-    summary = df.groupby("scenario").agg(
-        mean_ttc=("ttc_basic", "mean"),
-        mean_confidence=("predicted_confidence", "mean"),
-        accuracy=("correct", "mean"),
-    ).reset_index()
+    summary = (
+        df.groupby("scenario")
+        .agg(
+            mean_ttc=("ttc_basic", "mean"),
+            mean_confidence=("predicted_confidence", "mean"),
+            accuracy=("correct", "mean"),
+        )
+        .reset_index()
+    )
 
     fig, ax = plt.subplots(figsize=(10, 4.5))
     x = np.arange(len(summary))
@@ -91,14 +98,22 @@ def save_scenario_plot(df: pd.DataFrame, output_path: Path) -> None:
 def save_timeline_plot(df: pd.DataFrame, output_path: Path) -> None:
     fig, ax1 = plt.subplots(figsize=(11, 4.8))
     ax1.plot(df["timestamp_ms"], df["ttc_basic"], label="TTC basic", color="#1f77b4")
-    ax1.plot(df["timestamp_ms"], df["ttc_ext"], label="TTC ext", color="#2ca02c", alpha=0.85)
+    ax1.plot(
+        df["timestamp_ms"], df["ttc_ext"], label="TTC ext", color="#2ca02c", alpha=0.85
+    )
     ax1.set_ylabel("TTC (s)")
     ax1.set_xlabel("Timestamp (ms)")
     ax1.legend(loc="upper right")
     ax1.grid(alpha=0.25)
 
     ax2 = ax1.twinx()
-    ax2.plot(df["timestamp_ms"], df["predicted_confidence"], label="Predicted confidence", color="#d62728", alpha=0.6)
+    ax2.plot(
+        df["timestamp_ms"],
+        df["predicted_confidence"],
+        label="Predicted confidence",
+        color="#d62728",
+        alpha=0.6,
+    )
     ax2.set_ylabel("Confidence")
     ax2.set_ylim(0, 1.05)
 
@@ -109,7 +124,9 @@ def save_timeline_plot(df: pd.DataFrame, output_path: Path) -> None:
 
 def main() -> None:
     if not DATASET_FILE.exists():
-        raise FileNotFoundError(f"Dataset not found: {DATASET_FILE}. Run src/synthetic_validation_dataset.py first.")
+        raise FileNotFoundError(
+            f"Dataset not found: {DATASET_FILE}. Run src/synthetic_validation_dataset.py first."
+        )
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     df = pd.read_csv(DATASET_FILE)
@@ -118,7 +135,9 @@ def main() -> None:
     if "ground_truth_risk_class" not in df.columns:
         df["ground_truth_risk_class"] = df["risk_class"]
 
-    predictions = df.apply(lambda row: predict_risk_with_confidence(row.to_dict(), model), axis=1)
+    predictions = df.apply(
+        lambda row: predict_risk_with_confidence(row.to_dict(), model), axis=1
+    )
     df["predicted_risk_class"] = predictions.apply(lambda value: int(value[0]))
     df["predicted_confidence"] = predictions.apply(lambda value: float(value[1]))
     df["correct"] = df["predicted_risk_class"] == df["ground_truth_risk_class"]

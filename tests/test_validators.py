@@ -19,7 +19,7 @@ def test_validate_csv_line_invalid_field_count():
     # Too few fields
     result = validate_csv_line("1234,100.0,50.0")
     assert result is None
-    
+
     # Too many fields
     result = validate_csv_line("1234,100,50,3.0,3.1,0,0.9,extra")
     assert result is None
@@ -29,7 +29,7 @@ def test_validate_csv_line_invalid_types():
     """Test validation rejects non-numeric values."""
     result = validate_csv_line("abc,100.0,50.0,3.0,3.1,0,0.9")
     assert result is None
-    
+
     result = validate_csv_line("1234,invalid,50.0,3.0,3.1,0,0.9")
     assert result is None
 
@@ -39,7 +39,7 @@ def test_validate_csv_line_negative_values():
     # Negative TTC should be rejected
     result = validate_csv_line("1234,100.0,50.0,-1.0,3.1,0,0.9")
     assert result is None
-    
+
     # Negative distance should be rejected
     result = validate_csv_line("1234,-100.0,50.0,3.0,3.1,0,0.9")
     assert result is None
@@ -67,7 +67,12 @@ def test_detect_anomalies_confidence_drop():
     """Test anomaly detection for sudden confidence drops."""
     data_with_drop = [
         {"distance_cm": 100.0, "speed_kmh": 50.0, "ttc_basic": 2.0, "confidence": 0.95},
-        {"distance_cm": 95.0, "speed_kmh": 51.0, "ttc_basic": 1.9, "confidence": 0.20},  # Drop!
+        {
+            "distance_cm": 95.0,
+            "speed_kmh": 51.0,
+            "ttc_basic": 1.9,
+            "confidence": 0.20,
+        },  # Drop!
     ]
     result = detect_anomalies(data_with_drop)
     # Should detect the confidence anomaly

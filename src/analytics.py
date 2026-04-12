@@ -39,7 +39,9 @@ class SessionAnalytics:
 
     def get_ttc_statistics(self) -> Dict[str, float]:
         """Calculate TTC statistics (min, max, mean, median, stdev)."""
-        ttc_values = [e.get("ttc_basic", 0) for e in self.events if e.get("ttc_basic", 0) < 99.0]
+        ttc_values = [
+            e.get("ttc_basic", 0) for e in self.events if e.get("ttc_basic", 0) < 99.0
+        ]
 
         if not ttc_values:
             return {"min": 0, "max": 0, "mean": 0, "median": 0, "stdev": 0}
@@ -50,7 +52,9 @@ class SessionAnalytics:
                 "max": round(max(ttc_values), 2),
                 "mean": round(statistics.mean(ttc_values), 2),
                 "median": round(statistics.median(ttc_values), 2),
-                "stdev": round(statistics.stdev(ttc_values) if len(ttc_values) > 1 else 0, 2),
+                "stdev": round(
+                    statistics.stdev(ttc_values) if len(ttc_values) > 1 else 0, 2
+                ),
             }
         except Exception as e:
             logger.error(f"Error calculating TTC statistics: {e}")
@@ -62,14 +66,18 @@ class SessionAnalytics:
             return "insufficient_data"
 
         recent = self.events[-window:]
-        ttc_vals = [e.get("ttc_basic", 0) for e in recent if e.get("ttc_basic", 0) < 99.0]
+        ttc_vals = [
+            e.get("ttc_basic", 0) for e in recent if e.get("ttc_basic", 0) < 99.0
+        ]
 
         if len(ttc_vals) < 2:
             return "stable"
 
         mid = len(ttc_vals) // 2
         first_half_mean = statistics.mean(ttc_vals[:mid]) if mid > 0 else ttc_vals[0]
-        second_half_mean = statistics.mean(ttc_vals[mid:]) if len(ttc_vals) > mid else ttc_vals[mid]
+        second_half_mean = (
+            statistics.mean(ttc_vals[mid:]) if len(ttc_vals) > mid else ttc_vals[mid]
+        )
 
         change = second_half_mean - first_half_mean
         threshold = 0.2
@@ -87,7 +95,9 @@ class SessionAnalytics:
             return 99.0
 
         recent = self.events[-window:]
-        ttc_vals = [e.get("ttc_basic", 0) for e in recent if e.get("ttc_basic", 0) < 99.0]
+        ttc_vals = [
+            e.get("ttc_basic", 0) for e in recent if e.get("ttc_basic", 0) < 99.0
+        ]
 
         if len(ttc_vals) < 2:
             return ttc_vals[0] if ttc_vals else 99.0
@@ -98,7 +108,9 @@ class SessionAnalytics:
             x_mean = statistics.mean(x_vals)
             y_mean = statistics.mean(ttc_vals)
 
-            numerator = sum((x_vals[i] - x_mean) * (ttc_vals[i] - y_mean) for i in range(n))
+            numerator = sum(
+                (x_vals[i] - x_mean) * (ttc_vals[i] - y_mean) for i in range(n)
+            )
             denominator = sum((x_vals[i] - x_mean) ** 2 for i in range(n))
 
             if denominator == 0:
@@ -114,7 +126,9 @@ class SessionAnalytics:
 
     def get_critical_events_info(self) -> Dict[str, Any]:
         """Analyze CRITICAL risk events."""
-        critical_events = [e for e in self.events if e.get("risk_class", e.get("risk", 0)) == 2]
+        critical_events = [
+            e for e in self.events if e.get("risk_class", e.get("risk", 0)) == 2
+        ]
 
         if not critical_events:
             return {
@@ -133,7 +147,9 @@ class SessionAnalytics:
             "min_ttc": min(ttc_values),
             "max_ttc": max(ttc_values),
             "avg_ttc": round(statistics.mean(ttc_values), 2),
-            "avg_confidence": round(statistics.mean([e.get("confidence", 0) for e in critical_events]), 2),
+            "avg_confidence": round(
+                statistics.mean([e.get("confidence", 0) for e in critical_events]), 2
+            ),
         }
 
 

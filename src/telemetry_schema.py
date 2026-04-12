@@ -9,7 +9,7 @@ Format: timestamp_ms, distance_cm, speed_kmh, ttc_basic, ttc_ext, risk_class, co
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Optional
 
 from config import TELEMETRY_FIELDS, TELEMETRY_FIELD_COUNT
 

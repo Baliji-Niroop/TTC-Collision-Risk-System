@@ -43,18 +43,18 @@ SESSION_CSV_COLUMNS = list(TELEMETRY_FIELDS)
 # --- Risk classification ---
 # TTC thresholds define the three risk zones
 RISK_THRESHOLDS = {
-    "critical": 1.5,       # TTC <= 1.5 s  ->  CRITICAL
-    "warning": 3.0,        # 1.5 < TTC <= 3.0  ->  WARNING
-    "safe": float("inf")   # TTC > 3.0  ->  SAFE
+    "critical": 1.5,  # TTC <= 1.5 s  ->  CRITICAL
+    "warning": 3.0,  # 1.5 < TTC <= 3.0  ->  WARNING
+    "safe": float("inf"),  # TTC > 3.0  ->  SAFE
 }
 
 RISK_LABELS = {0: "SAFE", 1: "WARNING", 2: "CRITICAL"}
 RISK_INVERSE = {v: k for k, v in RISK_LABELS.items()}
 
 RISK_COLORS = {
-    0: ("SAFE", "#1a7a2e"),      # Green
-    1: ("WARNING", "#b36b00"),    # Amber
-    2: ("CRITICAL", "#b71c1c"),   # Red
+    0: ("SAFE", "#1a7a2e"),  # Green
+    1: ("WARNING", "#b36b00"),  # Amber
+    2: ("CRITICAL", "#b71c1c"),  # Red
 }
 
 # --- Dashboard & UI ---
@@ -130,6 +130,7 @@ LOGGING_CONFIG = {
 
 
 # --- Helper functions ---
+
 
 def get_risk_class(ttc: float) -> int:
     """Return 0 (SAFE), 1 (WARNING), or 2 (CRITICAL) based on TTC."""

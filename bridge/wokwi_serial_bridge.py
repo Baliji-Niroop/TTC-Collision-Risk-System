@@ -13,7 +13,6 @@ when run in stack mode.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import subprocess
 import sys
@@ -33,9 +32,12 @@ except ImportError:  # pragma: no cover - handled at runtime
 
 # Create fallback exception class if serial is not available
 if serial is None:
+
     class SerialException(Exception):
         """Fallback exception when pyserial is not installed."""
+
         pass
+
 else:
     SerialException = serial.SerialException
 
@@ -54,29 +56,48 @@ from logger import get_logger  # noqa: E402
 
 logger = get_logger(__name__)
 
-CANONICAL_FIELDS = "timestamp_ms,distance_cm,speed_kmh,ttc_basic,ttc_ext,risk_class,confidence"
+CANONICAL_FIELDS = (
+    "timestamp_ms,distance_cm,speed_kmh,ttc_basic,ttc_ext,risk_class,confidence"
+)
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Wokwi serial bridge for the TTC project")
-    parser.add_argument("--source", choices=["auto", "websocket", "stdin"], default="auto")
+    parser = argparse.ArgumentParser(
+        description="Wokwi serial bridge for the TTC project"
+    )
+    parser.add_argument(
+        "--source", choices=["auto", "websocket", "stdin"], default="auto"
+    )
     parser.add_argument("--ws-url", default=os.environ.get("WOKWI_SERIAL_WS_URL"))
-    parser.add_argument("--serial-out", default=os.environ.get("WOKWI_BRIDGE_SERIAL_OUT"))
+    parser.add_argument(
+        "--serial-out", default=os.environ.get("WOKWI_BRIDGE_SERIAL_OUT")
+    )
     parser.add_argument("--launch-stack", action="store_true", default=True)
     parser.add_argument("--no-launch-stack", dest="launch_stack", action="store_false")
     parser.add_argument("--reader-port", default=os.environ.get("WOKWI_READER_PORT"))
-    parser.add_argument("--dashboard-port", default=os.environ.get("TTC_DASHBOARD_PORT", "8501"))
-    parser.add_argument("--dashboard-mode", default=os.environ.get("TTC_DASHBOARD_DEFAULT_MODE", "Live Log"))
-    parser.add_argument("--validation-test", default=str(VALIDATION_DIR / "protocol_contract_test.py"))
+    parser.add_argument(
+        "--dashboard-port", default=os.environ.get("TTC_DASHBOARD_PORT", "8501")
+    )
+    parser.add_argument(
+        "--dashboard-mode",
+        default=os.environ.get("TTC_DASHBOARD_DEFAULT_MODE", "Live Log"),
+    )
+    parser.add_argument(
+        "--validation-test", default=str(VALIDATION_DIR / "protocol_contract_test.py")
+    )
     return parser.parse_args()
 
 
 def run_protocol_preflight(test_path: Path) -> None:
     python_exe = sys.executable
     logger.info("Running protocol preflight: %s", test_path)
-    result = subprocess.run([python_exe, str(test_path)], cwd=str(ROOT_DIR), capture_output=True, text=True)
+    result = subprocess.run(
+        [python_exe, str(test_path)], cwd=str(ROOT_DIR), capture_output=True, text=True
+    )
     if result.returncode != 0:
-        logger.error("Protocol contract test failed:\n%s\n%s", result.stdout, result.stderr)
+        logger.error(
+            "Protocol contract test failed:\n%s\n%s", result.stdout, result.stderr
+        )
         raise SystemExit(result.returncode)
     logger.info("Protocol preflight passed")
 
@@ -84,19 +105,19 @@ def run_protocol_preflight(test_path: Path) -> None:
 def open_serial_port(port_name: str):
     """
     Open a virtual COM port for forwarding telemetry.
-    
+
     Args:
         port_name: COM port identifier (e.g., 'COM3')
-        
+
     Returns:
         serial.Serial object or None if port fails to open
-        
+
     Raises:
         RuntimeError: If pyserial is not installed
     """
     if serial is None:
         raise RuntimeError("pyserial is not installed")
-    
+
     try:
         port = serial.Serial(port_name, 115200, timeout=1)
         logger.info("Successfully opened serial port: %s", port_name)
@@ -115,17 +136,17 @@ def write_live_file(line: str) -> None:
 def forward_packet(line: str, serial_port) -> bool:
     """
     Validate, normalize, and forward a telemetry packet.
-    
+
     Packet flow:
       1. Parse and validate CSV fields
       2. Apply telemetry schema (field order, types, precision)
       3. Forward to serial port (if available)
       4. Write to live_data.txt for dashboard
-      
+
     Args:
         line: Raw telemetry string from Wokwi
         serial_port: Optional serial.Serial object
-        
+
     Returns:
         True if packet was successfully forwarded, False otherwise
     """
@@ -140,7 +161,7 @@ def forward_packet(line: str, serial_port) -> bool:
         logger.error("Failed to format packet: %s (error: %s)", line, e)
         return False
 
-     # Attempt serial forwarding
+    # Attempt serial forwarding
     if serial_port is not None:
         try:
             serial_port.write(normalized.encode("utf-8"))
@@ -163,59 +184,63 @@ def forward_packet(line: str, serial_port) -> bool:
 def websocket_lines(ws_url: str) -> Iterable[str]:
     """
     Stream telemetry lines from Wokwi websocket with automatic reconnection.
-    
+
     Handles:
       - Initial connection failures
       - Mid-stream disconnections
       - Exponential backoff (1s → 10s) between retries
       - Graceful shutdown on KeyboardInterrupt
-      
+
     Args:
         ws_url: Wokwi websocket URL (e.g., ws://localhost:8765)
-        
+
     Yields:
         Telemetry lines from the simulator
-        
+
     Raises:
         KeyboardInterrupt: When user terminates
     """
     if websocket is None:
-        raise RuntimeError("websocket-client is not installed. Install with: pip install websocket-client")
+        raise RuntimeError(
+            "websocket-client is not installed. Install with: pip install websocket-client"
+        )
 
     retry_delay = 1.0
     max_retry_delay = 10.0
-    
+
     while True:
         try:
             logger.info("Connecting to Wokwi websocket: %s", ws_url)
             socket = websocket.create_connection(ws_url, timeout=10)
             retry_delay = 1.0
             logger.info("Websocket connected successfully")
-            
+
             while True:
                 try:
                     message = socket.recv()
                     if message is None:
                         logger.warning("Websocket received None, reconnecting...")
                         break
-                        
+
                     if isinstance(message, bytes):
                         message = message.decode("utf-8", errors="ignore")
-                        
+
                     for raw_line in str(message).splitlines():
                         if raw_line.strip():
                             yield raw_line.strip()
-                            
+
                 except KeyboardInterrupt:
                     raise
                 except Exception as e:
                     logger.error("Error reading from websocket: %s", e)
                     break
-                    
+
         except KeyboardInterrupt:
             raise
         except Exception as exc:
-            logger.warning("Wokwi websocket disconnected: %s (retry in %.1fs)", exc, retry_delay)
+            logger.warning(
+                "Wokwi websocket disconnected: %s (retry in %.1fs)", exc, retry_delay
+            )
             time.sleep(retry_delay)
             retry_delay = min(retry_delay * 2.0, max_retry_delay)
 
@@ -228,19 +253,38 @@ def stdin_lines() -> Iterable[str]:
             yield raw_line
 
 
-def launch_child_processes(reader_port: Optional[str], dashboard_port: str, dashboard_mode: str) -> list[subprocess.Popen]:
+def launch_child_processes(
+    reader_port: Optional[str], dashboard_port: str, dashboard_mode: str
+) -> list[subprocess.Popen]:
     processes: list[subprocess.Popen] = []
     python_exe = sys.executable
 
     if reader_port:
-        reader_cmd = [python_exe, str(SRC_DIR / "serial_reader.py"), "--port", reader_port]
+        reader_cmd = [
+            python_exe,
+            str(SRC_DIR / "serial_reader.py"),
+            "--port",
+            reader_port,
+        ]
         processes.append(subprocess.Popen(reader_cmd, cwd=str(ROOT_DIR)))
         logger.info("Started serial_reader.py on %s", reader_port)
 
     dashboard_env = os.environ.copy()
     dashboard_env["TTC_DASHBOARD_DEFAULT_MODE"] = dashboard_mode
-    dashboard_cmd = [python_exe, "-m", "streamlit", "run", str(SRC_DIR / "dashboard.py"), "--server.headless", "true", "--server.port", dashboard_port]
-    processes.append(subprocess.Popen(dashboard_cmd, cwd=str(ROOT_DIR), env=dashboard_env))
+    dashboard_cmd = [
+        python_exe,
+        "-m",
+        "streamlit",
+        "run",
+        str(SRC_DIR / "dashboard.py"),
+        "--server.headless",
+        "true",
+        "--server.port",
+        dashboard_port,
+    ]
+    processes.append(
+        subprocess.Popen(dashboard_cmd, cwd=str(ROOT_DIR), env=dashboard_env)
+    )
     logger.info("Started dashboard on port %s", dashboard_port)
 
     return processes
@@ -249,14 +293,14 @@ def launch_child_processes(reader_port: Optional[str], dashboard_port: str, dash
 def main() -> int:
     """
     Main bridge controller.
-    
+
     Orchestrates:
       1. Protocol validation preflight
       2. Serial port initialization (with graceful degradation)
       3. Child process launch (reader, dashboard)
       4. Telemetry ingestion loop
       5. Graceful shutdown
-      
+
     Returns:
         0 on success, non-zero exit code on fatal error
     """
@@ -270,12 +314,16 @@ def main() -> int:
         if serial_port:
             logger.info("Forwarding canonical packets to COM port %s", args.serial_out)
         else:
-            logger.info("Serial port unavailable - packets will be written to live_data.txt only")
+            logger.info(
+                "Serial port unavailable - packets will be written to live_data.txt only"
+            )
 
     children: list[subprocess.Popen] = []
     if args.launch_stack:
         try:
-            children = launch_child_processes(args.reader_port, args.dashboard_port, args.dashboard_mode)
+            children = launch_child_processes(
+                args.reader_port, args.dashboard_port, args.dashboard_mode
+            )
         except Exception as e:
             logger.error("Failed to launch child processes: %s", e)
             if serial_port:
@@ -289,23 +337,29 @@ def main() -> int:
     try:
         if source_mode == "websocket":
             if not args.ws_url:
-                raise SystemExit("--ws-url or WOKWI_SERIAL_WS_URL is required for websocket mode")
+                raise SystemExit(
+                    "--ws-url or WOKWI_SERIAL_WS_URL is required for websocket mode"
+                )
             line_iterable = websocket_lines(args.ws_url)
         else:
             line_iterable = stdin_lines()
 
         packet_count = 0
         error_count = 0
-        
+
         for line in line_iterable:
             if forward_packet(line, serial_port):
                 packet_count += 1
             else:
                 error_count += 1
-            
+
             # Log stats periodically
             if packet_count % 100 == 0 and packet_count > 0:
-                logger.info("Bridge stats: %d packets forwarded, %d errors", packet_count, error_count)
+                logger.info(
+                    "Bridge stats: %d packets forwarded, %d errors",
+                    packet_count,
+                    error_count,
+                )
 
     except KeyboardInterrupt:
         logger.info("Bridge interrupted by user")
@@ -318,19 +372,25 @@ def main() -> int:
                 serial_port.close()
             except Exception as e:
                 logger.warning("Error closing serial port: %s", e)
-                
+
         for process in children:
             if process.poll() is None:
                 try:
                     process.terminate()
                     process.wait(timeout=5)
                 except subprocess.TimeoutExpired:
-                    logger.warning("Child process did not terminate gracefully, killing...")
+                    logger.warning(
+                        "Child process did not terminate gracefully, killing..."
+                    )
                     process.kill()
                 except Exception as e:
                     logger.warning("Error terminating child process: %s", e)
-                    
-        logger.info("Bridge shutdown complete (forwarded %d packets, %d errors)", packet_count, error_count)
+
+        logger.info(
+            "Bridge shutdown complete (forwarded %d packets, %d errors)",
+            packet_count,
+            error_count,
+        )
 
     return 0
 

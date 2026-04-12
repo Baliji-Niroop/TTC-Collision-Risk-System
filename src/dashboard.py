@@ -30,8 +30,12 @@ import streamlit as st
 # Project imports
 try:
     from config import (
-        MODEL_PATH, DATA_PATH, RISK_LABELS, RISK_COLORS,
-        DASHBOARD_CONFIG, RISK_THRESHOLDS, get_risk_class
+        MODEL_PATH,
+        DATA_PATH,
+        RISK_LABELS,
+        RISK_COLORS,
+        DASHBOARD_CONFIG,
+        RISK_THRESHOLDS,
     )
     from logger import get_logger
     from validators import validate_csv_line
@@ -40,7 +44,6 @@ try:
 except ImportError as e:
     # Fallback if modules not found
     print(f"Warning: Could not import project modules: {e}")
-    from pathlib import Path
     BASE_DIR = Path(__file__).resolve().parent
     ROOT_DIR = BASE_DIR.parent
     MODEL_PATH = ROOT_DIR / "MODELS" / "ml_model.pkl"
@@ -53,19 +56,32 @@ except ImportError as e:
     }
     DASHBOARD_CONFIG = {"max_buffer_points": 120, "refresh_interval_sec": 0.6}
     RISK_THRESHOLDS = {"critical": 1.5, "warning": 3.0}
+
     class _NoOpLogger:
         def debug(self, *args, **kwargs):
             pass
+
         def info(self, *args, **kwargs):
             pass
+
         def warning(self, *args, **kwargs):
             pass
+
         def error(self, *args, **kwargs):
             pass
-    get_logger = lambda x: _NoOpLogger()
-    validate_csv_line = lambda x: None
-    check_and_alert = lambda x, y: False
-    parse_packet = lambda x: None
+
+    def get_logger(_name):
+        return _NoOpLogger()
+
+    def validate_csv_line(_line):
+        return None
+
+    def check_and_alert(_packet, _logger):
+        return False
+
+    def parse_packet(_line):
+        return None
+
 
 # Logging
 logger = get_logger(__name__)
@@ -82,7 +98,8 @@ st.set_page_config(
 )
 
 # Custom CSS — metric cards, risk banners, charts, sidebar, footer
-st.markdown("""
+st.markdown(
+    """
 <style>
 /* ---------- Risk banner pulse animations ---------- */
 @keyframes pulse-critical {
@@ -137,12 +154,15 @@ section[data-testid="stSidebar"] > div { padding-top: 1.4rem; }
     letter-spacing: 0.3px;
 }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 # pyserial — only needed for ESP32 USB mode
 try:
     import serial
     import serial.tools.list_ports
+
     _SERIAL_OK = True
 except ImportError:
     _SERIAL_OK = False
@@ -156,6 +176,7 @@ def _load_model():
     try:
         import joblib
         import sklearn
+
         _req_ver = "1.7.1"
         if sklearn.__version__ != _req_ver:
             st.sidebar.warning(
@@ -184,19 +205,19 @@ model = _load_model()
 
 # Session state — persists across Streamlit reruns
 _STATE_DEFAULTS = {
-    "buffer":         [],       # Rolling list of dicts for trend charts
-    "min_ttc":        99.0,     # Lowest TTC observed this session (seconds)
-    "max_speed":      0.0,      # Highest speed observed this session (km/h)
-    "critical_count": 0,        # Cumulative count of CRITICAL risk events
-    "warning_count":  0,        # Cumulative count of WARNING risk events
-    "safe_count":     0,        # Cumulative count of SAFE events
-    "session_start":  time.time(),
-    "log_rows":       [],       # Full event log kept for CSV export
-    "total_readings": 0,        # Cumulative total readings tracker
-    "sum_confidence": 0.0,      # Cumulative sum of confidence tracker
-    "sim_d":          8.0,      # Simulator state: current distance (m)
-    "sim_v":          1.0,      # Simulator state: current velocity (m/s)
-    "sim_t":          0,        # Simulator state: tick counter
+    "buffer": [],  # Rolling list of dicts for trend charts
+    "min_ttc": 99.0,  # Lowest TTC observed this session (seconds)
+    "max_speed": 0.0,  # Highest speed observed this session (km/h)
+    "critical_count": 0,  # Cumulative count of CRITICAL risk events
+    "warning_count": 0,  # Cumulative count of WARNING risk events
+    "safe_count": 0,  # Cumulative count of SAFE events
+    "session_start": time.time(),
+    "log_rows": [],  # Full event log kept for CSV export
+    "total_readings": 0,  # Cumulative total readings tracker
+    "sum_confidence": 0.0,  # Cumulative sum of confidence tracker
+    "sim_d": 8.0,  # Simulator state: current distance (m)
+    "sim_v": 1.0,  # Simulator state: current velocity (m/s)
+    "sim_t": 0,  # Simulator state: tick counter
 }
 for _k, _v in _STATE_DEFAULTS.items():
     if _k not in st.session_state:
@@ -204,6 +225,7 @@ for _k, _v in _STATE_DEFAULTS.items():
 
 
 # --- Data source functions ---
+
 
 def simulate_step() -> dict:
     """
@@ -222,8 +244,8 @@ def simulate_step() -> dict:
     risk_class, confidence.
     """
     dt = REFRESH_SEC
-    d  = st.session_state.sim_d
-    v  = st.session_state.sim_v
+    d = st.session_state.sim_d
+    v = st.session_state.sim_v
 
     # Advance the tick counter
     st.session_state.sim_t += 1
@@ -232,8 +254,8 @@ def simulate_step() -> dict:
     # The target velocity follows a slow sine wave so the simulated TTC
     # sweeps through SAFE, WARNING, and CRITICAL zones over time.
     target_v = 3.5 * math.sin(t * 0.07) + random.gauss(0, 0.1)
-    v += (target_v - v) * 0.2       # Smoothly blend towards target
-    v  = max(-2.0, min(v, 8.0))     # Clamp to realistic range
+    v += (target_v - v) * 0.2  # Smoothly blend towards target
+    v = max(-2.0, min(v, 8.0))  # Clamp to realistic range
 
     # Update distance based on velocity and time step
     d -= v * dt
@@ -264,7 +286,7 @@ def simulate_step() -> dict:
     # Extended TTC: assumes the vehicle decelerates at a_decel m/s².
     # Uses the kinematic equation:  d = v·t + ½·a·t²  →  solve for t.
     a_decel = 5.0
-    disc    = v_close ** 2 + 2 * a_decel * d
+    disc = v_close**2 + 2 * a_decel * d
     ttc_ext = (-v_close + math.sqrt(max(disc, 0.0))) / a_decel
     ttc_ext = round(min(ttc_ext, 99.0), 2)
 
@@ -274,11 +296,11 @@ def simulate_step() -> dict:
     return {
         "timestamp_ms": 0.0,
         "distance_cm": round(d * 100, 1),
-        "speed_kmh":   round(abs(v) * 3.6, 1),
-        "ttc_basic":   ttc_basic,
-        "ttc_ext":     ttc_ext,
-        "risk_class":  risk,
-        "confidence":  round(random.uniform(0.76, 0.99), 2),
+        "speed_kmh": round(abs(v) * 3.6, 1),
+        "ttc_basic": ttc_basic,
+        "ttc_ext": ttc_ext,
+        "risk_class": risk,
+        "confidence": round(random.uniform(0.76, 0.99), 2),
     }
 
 
@@ -296,7 +318,7 @@ def parse_csv_line(line: str) -> dict:
             return validate_csv_line(line)
 
         return parse_packet(line)
-        
+
     except ValueError as e:
         logger.error(f"Invalid data format in CSV line: {e}")
         return None
@@ -357,7 +379,7 @@ def read_serial(port: str) -> dict:
 
     The ESP32 firmware is expected to output comma-separated telemetry at
     115200 baud in the same 7-field format used by parse_csv_line().
-    
+
     Returns validated telemetry dict or None if error occurs.
     """
     try:
@@ -368,12 +390,12 @@ def read_serial(port: str) -> dict:
         raw = ser.readline().decode("utf-8", errors="ignore").strip()
         if not raw:
             return None
-        
+
         # Use validator instead of parse_csv_line for better error handling
         if validate_csv_line:
             return validate_csv_line(raw)
         return parse_csv_line(raw)
-        
+
     except UnicodeDecodeError as e:
         logger.error(f"Unicode decode error reading from serial: {e}")
         return None
@@ -383,6 +405,7 @@ def read_serial(port: str) -> dict:
 
 
 # --- ML prediction ---
+
 
 def ml_predict(row: dict) -> int:
     """
@@ -398,16 +421,16 @@ def ml_predict(row: dict) -> int:
     if model is None:
         return fallback_risk
     try:
-        d_m       = row["distance_cm"] / 100.0
-        spd       = row["speed_kmh"]
-        ttc       = row["ttc_basic"]
-        
+        d_m = row["distance_cm"] / 100.0
+        spd = row["speed_kmh"]
+        ttc = row["ttc_basic"]
+
         # Check for division by zero
         if ttc <= 0:
             logger.warning(f"Invalid TTC value for closing velocity calculation: {ttc}")
             close_vel = 0.0
         else:
-            close_vel = d_m / max(ttc, 0.1)     # Approximate closing velocity (m/s)
+            close_vel = d_m / max(ttc, 0.1)  # Approximate closing velocity (m/s)
 
         feature_dict = {
             "v_host": spd,
@@ -416,7 +439,7 @@ def ml_predict(row: dict) -> int:
             "ttc_basic": ttc,
             "ttc_ext": row.get("ttc_ext", ttc),
             "a_decel": 5.0,
-            "road_flag": 0
+            "road_flag": 0,
         }
 
         # Align to expected features if stored; else default
@@ -425,9 +448,19 @@ def ml_predict(row: dict) -> int:
         elif hasattr(model, "feature_names_in_"):
             expected_cols = list(model.feature_names_in_)
         else:
-            expected_cols = ["ttc_basic", "ttc_ext", "v_host", "v_closing", "a_decel", "road_flag"]
+            expected_cols = [
+                "ttc_basic",
+                "ttc_ext",
+                "v_host",
+                "v_closing",
+                "a_decel",
+                "road_flag",
+            ]
 
-        features = pd.DataFrame([{col: feature_dict.get(col, 0) for col in expected_cols}], columns=expected_cols)
+        features = pd.DataFrame(
+            [{col: feature_dict.get(col, 0) for col in expected_cols}],
+            columns=expected_cols,
+        )
 
         return int(model.predict(features)[0])
     except KeyError as e:
@@ -446,7 +479,9 @@ def ml_predict(row: dict) -> int:
 st.sidebar.title("Configuration")
 
 if not _SERIAL_OK:
-    st.sidebar.warning("`pyserial` not installed. 'ESP32 Serial' mode disabled. Run `pip install pyserial`.")
+    st.sidebar.warning(
+        "`pyserial` not installed. 'ESP32 Serial' mode disabled. Run `pip install pyserial`."
+    )
 
 # --- Data source selector ---
 # Available modes depend on what is installed / present on disk.
@@ -455,7 +490,9 @@ if _SERIAL_OK:
     _mode_opts.append("ESP32 Serial")
 
 _default_mode = os.environ.get("TTC_DASHBOARD_DEFAULT_MODE", "Simulator")
-_default_mode_index = _mode_opts.index(_default_mode) if _default_mode in _mode_opts else 0
+_default_mode_index = (
+    _mode_opts.index(_default_mode) if _default_mode in _mode_opts else 0
+)
 mode = st.sidebar.radio("Data Source", _mode_opts, index=_default_mode_index)
 
 # If ESP32 mode is selected, show a dropdown of available COM ports
@@ -473,9 +510,7 @@ st.sidebar.markdown("---")
 st.sidebar.markdown(
     f"**ML Model:** {'Loaded' if model else 'Not found — using packet risk_class'}"
 )
-st.sidebar.markdown(
-    f"**pyserial:** {'Available' if _SERIAL_OK else 'Not installed'}"
-)
+st.sidebar.markdown(f"**pyserial:** {'Available' if _SERIAL_OK else 'Not installed'}")
 st.sidebar.markdown(f"**Refresh interval:** {REFRESH_SEC} s")
 _latency_placeholder = st.sidebar.empty()  # Updated after pipeline runs
 
@@ -488,14 +523,22 @@ auto_refresh = st.sidebar.checkbox("Auto refresh", value=True)
 # level.  Useful for calibrating different driving scenarios (highway vs city).
 st.sidebar.subheader("Fallback Thresholds (used only when ML not loaded)")
 thresh_warn = st.sidebar.slider(
-    "Warning TTC (s)", 1.0, 5.0, 3.0, 0.1,
+    "Warning TTC (s)",
+    1.0,
+    5.0,
+    3.0,
+    0.1,
     help="TTC values below this are classified as WARNING",
-    disabled=(model is not None)
+    disabled=(model is not None),
 )
 thresh_crit = st.sidebar.slider(
-    "Critical TTC (s)", 0.5, 3.0, 1.5, 0.1,
+    "Critical TTC (s)",
+    0.5,
+    3.0,
+    1.5,
+    0.1,
     help="TTC values below this are classified as CRITICAL",
-    disabled=(model is not None)
+    disabled=(model is not None),
 )
 
 if thresh_crit >= thresh_warn:
@@ -531,7 +574,7 @@ try:
             time.sleep(1)
             st.rerun()
 
-    else:   # ESP32 Serial
+    else:  # ESP32 Serial
         if serial_port is None:
             st.error("No serial port selected.")
             st.stop()
@@ -561,7 +604,15 @@ if row is None:
     st.stop()
 
 # Validate all required fields
-required_fields = ["timestamp_ms", "ttc_basic", "speed_kmh", "distance_cm", "ttc_ext", "confidence", "risk_class"]
+required_fields = [
+    "timestamp_ms",
+    "ttc_basic",
+    "speed_kmh",
+    "distance_cm",
+    "ttc_ext",
+    "confidence",
+    "risk_class",
+]
 missing_fields = [f for f in required_fields if f not in row]
 if missing_fields:
     logger.error(f"Missing required fields in telemetry data: {missing_fields}")
@@ -570,7 +621,7 @@ if missing_fields:
 
 # --- Process: classify risk, update session stats ---
 
-risk  = ml_predict(row)
+risk = ml_predict(row)
 ttc_b = row["ttc_basic"]
 
 # Update latency display in sidebar
@@ -580,7 +631,7 @@ _latency_placeholder.markdown(f"**Pipeline latency:** {_t_pipeline_ms:.1f} ms")
 # Log anomalies if detected
 if row.get("anomaly_flag", False):
     logger.warning(f"Anomaly detected in telemetry: {row}")
-    
+
 # Check for alerts
 try:
     check_and_alert(risk, row)
@@ -612,30 +663,34 @@ st.session_state.sum_confidence += round(row["confidence"] * 100, 1)
 
 # Append current values to the rolling chart buffer (oldest entries are
 # dropped once the buffer exceeds MAX_POINTS).
-st.session_state.buffer.append({
-    "TTC Basic (s)": ttc_b,
-    "TTC Ext (s)":   row["ttc_ext"],
-    "Distance (m)":  round(row["distance_cm"] / 100, 2),
-    "Speed (km/h)":  row["speed_kmh"],
-})
+st.session_state.buffer.append(
+    {
+        "TTC Basic (s)": ttc_b,
+        "TTC Ext (s)": row["ttc_ext"],
+        "Distance (m)": round(row["distance_cm"] / 100, 2),
+        "Speed (km/h)": row["speed_kmh"],
+    }
+)
 if len(st.session_state.buffer) > MAX_POINTS:
     st.session_state.buffer.pop(0)
 
 df = pd.DataFrame(st.session_state.buffer)
 
 # Append to the full event log (used for the data table and CSV export)
-st.session_state.log_rows.append({
-    "timestamp_ms":   row["timestamp_ms"],
-    "time":          time.strftime("%H:%M:%S"),
-    "distance_cm":   row["distance_cm"],
-    "speed_kmh":     row["speed_kmh"],
-    "ttc_basic":     ttc_b,
-    "ttc_ext":       row["ttc_ext"],
-    "risk_class":    risk,
-    "confidence":    row["confidence"],
-    "distance_m":    round(row["distance_cm"] / 100, 2),
-    "risk_label":    RISK_LABELS[risk],
-})
+st.session_state.log_rows.append(
+    {
+        "timestamp_ms": row["timestamp_ms"],
+        "time": time.strftime("%H:%M:%S"),
+        "distance_cm": row["distance_cm"],
+        "speed_kmh": row["speed_kmh"],
+        "ttc_basic": ttc_b,
+        "ttc_ext": row["ttc_ext"],
+        "risk_class": risk,
+        "confidence": row["confidence"],
+        "distance_m": round(row["distance_cm"] / 100, 2),
+        "risk_label": RISK_LABELS[risk],
+    }
+)
 
 # Cap the log_rows to prevent memory leak and execution lag
 MAX_LOG_ROWS = 2000
@@ -660,9 +715,9 @@ anim_class = {2: "risk-banner-critical", 1: "risk-banner-warning"}.get(risk, "")
 
 st.markdown(
     f'<div class="{anim_class}" style="background:{color};color:white;'
-    f'text-align:center;padding:16px;border-radius:8px;'
+    f"text-align:center;padding:16px;border-radius:8px;"
     f'font-size:1.8rem;font-weight:700;letter-spacing:1px;margin-bottom:6px;">'
-    f'{label}</div>',
+    f"{label}</div>",
     unsafe_allow_html=True,
 )
 st.markdown("")
@@ -670,20 +725,30 @@ st.markdown("")
 # --- Primary Telemetry Metrics ---
 c1, c2, c3, c4 = st.columns(4)
 prev_ttc = df["TTC Basic (s)"].iloc[-2] if len(df) >= 2 else None
-c1.metric("TTC Basic",    f"{ttc_b:.2f} s",
-          delta=f"{ttc_b - prev_ttc:.2f} s" if prev_ttc is not None else None)
+c1.metric(
+    "TTC Basic",
+    f"{ttc_b:.2f} s",
+    delta=f"{ttc_b - prev_ttc:.2f} s" if prev_ttc is not None else None,
+)
 c2.metric("TTC Extended", f"{row['ttc_ext']:.2f} s")
-c3.metric("Distance",     f"{row['distance_cm'] / 100:.2f} m")
-c4.metric("Speed",        f"{row['speed_kmh']:.1f} km/h" if row['speed_kmh'] < 100 else f"{row['speed_kmh']:.0f} km/h")
+c3.metric("Distance", f"{row['distance_cm'] / 100:.2f} m")
+c4.metric(
+    "Speed",
+    (
+        f"{row['speed_kmh']:.1f} km/h"
+        if row["speed_kmh"] < 100
+        else f"{row['speed_kmh']:.0f} km/h"
+    ),
+)
 
 st.markdown("---")
 
 # --- Session Statistics ---
 c5, c6, c7, c8 = st.columns(4)
-c5.metric("Confidence",        f"{row['confidence'] * 100:.0f}%")
+c5.metric("Confidence", f"{row['confidence'] * 100:.0f}%")
 c6.metric("Min TTC (session)", f"{st.session_state.min_ttc:.2f} s")
-c7.metric("Critical Events",   st.session_state.critical_count)
-c8.metric("Warning Events",    st.session_state.warning_count)
+c7.metric("Critical Events", st.session_state.critical_count)
+c8.metric("Warning Events", st.session_state.warning_count)
 
 st.markdown("---")
 
@@ -718,14 +783,16 @@ total_events = (
 
 with col_dist_l:
     if total_events > 0:
-        dist_df = pd.DataFrame({
-            "Risk Level": ["SAFE", "WARNING", "CRITICAL"],
-            "Count":      [
-                st.session_state.safe_count,
-                st.session_state.warning_count,
-                st.session_state.critical_count,
-            ],
-        })
+        dist_df = pd.DataFrame(
+            {
+                "Risk Level": ["SAFE", "WARNING", "CRITICAL"],
+                "Count": [
+                    st.session_state.safe_count,
+                    st.session_state.warning_count,
+                    st.session_state.critical_count,
+                ],
+            }
+        )
         st.bar_chart(dist_df.set_index("Risk Level"), height=200)
 
 with col_dist_r:
@@ -769,15 +836,19 @@ if st.session_state.log_rows:
             return ["background-color: rgba(179,107,0,0.10)"] * len(row)
         return [""] * len(row)
 
-    styled_log = log_df.style.apply(_highlight_risk, axis=1).format({
-        "ttc_basic": "{:.2f}",
-        "ttc_ext":   "{:.2f}",
-        "distance_m":  "{:.2f}",
-        "speed_kmh":   "{:.1f}",
-        "confidence": "{:.2f}",
-    })
+    styled_log = log_df.style.apply(_highlight_risk, axis=1).format(
+        {
+            "ttc_basic": "{:.2f}",
+            "ttc_ext": "{:.2f}",
+            "distance_m": "{:.2f}",
+            "speed_kmh": "{:.1f}",
+            "confidence": "{:.2f}",
+        }
+    )
     st.dataframe(
-        styled_log, height=240, use_container_width=True,
+        styled_log,
+        height=240,
+        use_container_width=True,
         column_config={
             "risk_label": st.column_config.TextColumn("risk_label", width="medium"),
         },
@@ -785,15 +856,17 @@ if st.session_state.log_rows:
 
     # CSV export of the full session log (not just the last 30 rows)
     csv_bytes = (
-        pd.DataFrame(st.session_state.log_rows)[[
-            "timestamp_ms",
-            "distance_cm",
-            "speed_kmh",
-            "ttc_basic",
-            "ttc_ext",
-            "risk_class",
-            "confidence",
-        ]]
+        pd.DataFrame(st.session_state.log_rows)[
+            [
+                "timestamp_ms",
+                "distance_cm",
+                "speed_kmh",
+                "ttc_basic",
+                "ttc_ext",
+                "risk_class",
+                "confidence",
+            ]
+        ]
         .to_csv(index=False)
         .encode("utf-8")
     )
@@ -809,8 +882,8 @@ else:
 st.markdown("---")
 
 # --- Session Summary ---
-elapsed  = int(time.time() - st.session_state.session_start)
-h, rem   = divmod(elapsed, 3600)
+elapsed = int(time.time() - st.session_state.session_start)
+h, rem = divmod(elapsed, 3600)
 m_t, s_t = divmod(rem, 60)
 total_readings = st.session_state.total_readings
 total_div = max(total_readings, 1)
@@ -818,27 +891,29 @@ safe_pct = round((st.session_state.safe_count / total_div) * 100)
 
 st.subheader("Session Summary")
 s1, s2, s3, s4 = st.columns(4)
-s1.metric("Duration",       f"{h}h {m_t:02d}m {s_t:02d}s" if h > 0 else f"{m_t}m {s_t:02d}s")
+s1.metric("Duration", f"{h}h {m_t:02d}m {s_t:02d}s" if h > 0 else f"{m_t}m {s_t:02d}s")
 s2.metric("Total Readings", total_readings)
-s3.metric("Time Safe",      f"{safe_pct}%")
-s4.metric("Mean TTC",
-          f"{df['TTC Basic (s)'].mean():.2f} s" if len(df) > 0 else "—")
+s3.metric("Time Safe", f"{safe_pct}%")
+s4.metric("Mean TTC", f"{df['TTC Basic (s)'].mean():.2f} s" if len(df) > 0 else "—")
 
 s5, s6, s7, s8 = st.columns(4)
-s5.metric("Max Speed",      f"{st.session_state.max_speed:.1f} km/h")
-s6.metric("Avg Distance",
-          f"{df['Distance (m)'].mean():.2f} m" if len(df) > 0 else "—")
-s7.metric("Avg Speed",
-          f"{df['Speed (km/h)'].mean():.1f} km/h" if len(df) > 0 else "—")
-s8.metric("Avg Confidence",
-          f"{st.session_state.sum_confidence / total_div:.0f}%"
-          if total_readings > 0 else "—")
+s5.metric("Max Speed", f"{st.session_state.max_speed:.1f} km/h")
+s6.metric("Avg Distance", f"{df['Distance (m)'].mean():.2f} m" if len(df) > 0 else "—")
+s7.metric("Avg Speed", f"{df['Speed (km/h)'].mean():.1f} km/h" if len(df) > 0 else "—")
+s8.metric(
+    "Avg Confidence",
+    (
+        f"{st.session_state.sum_confidence / total_div:.0f}%"
+        if total_readings > 0
+        else "—"
+    ),
+)
 
 # --- Footer ---
 st.markdown(
     '<div class="footer-brand">'
-    'Adaptive Collision Risk Prediction System · TTC Dashboard v2.0'
-    '</div>',
+    "Adaptive Collision Risk Prediction System · TTC Dashboard v2.0"
+    "</div>",
     unsafe_allow_html=True,
 )
 

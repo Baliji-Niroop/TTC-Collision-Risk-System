@@ -1,7 +1,7 @@
 """
 Unit tests for src/config.py
 """
-import pytest
+
 from src import config
 
 
@@ -44,11 +44,11 @@ def test_get_risk_class():
     # CRITICAL
     assert config.get_risk_class(0.5) == 2
     assert config.get_risk_class(1.5) == 2
-    
+
     # WARNING
     assert config.get_risk_class(2.0) == 1
     assert config.get_risk_class(3.0) == 1
-    
+
     # SAFE
     assert config.get_risk_class(3.5) == 0
     assert config.get_risk_class(10.0) == 0

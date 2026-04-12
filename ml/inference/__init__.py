@@ -14,7 +14,14 @@ import pandas as pd
 
 from config import MODEL_PATH
 
-FALLBACK_FEATURE_COLUMNS = ["ttc_basic", "ttc_ext", "v_host", "v_closing", "a_decel", "road_flag"]
+FALLBACK_FEATURE_COLUMNS = [
+    "ttc_basic",
+    "ttc_ext",
+    "v_host",
+    "v_closing",
+    "a_decel",
+    "road_flag",
+]
 
 
 @lru_cache(maxsize=1)
@@ -58,7 +65,9 @@ def _feature_frame(row: Dict[str, Any], model) -> pd.DataFrame:
     else:
         columns = FALLBACK_FEATURE_COLUMNS
 
-    return pd.DataFrame([{column: feature_map.get(column, 0.0) for column in columns}], columns=columns)
+    return pd.DataFrame(
+        [{column: feature_map.get(column, 0.0) for column in columns}], columns=columns
+    )
 
 
 def predict_risk(row: Dict[str, Any], model=None) -> int:

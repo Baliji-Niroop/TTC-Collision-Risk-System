@@ -28,6 +28,7 @@ try:
     from logger import get_logger
     from validators import validate_csv_line
     from telemetry_schema import format_packet
+
     logger = get_logger(__name__)
 except ImportError:
     logger = None
@@ -83,12 +84,17 @@ def main():
     parser = argparse.ArgumentParser(
         description="TTC Serial Reader — reads live telemetry from ESP32"
     )
-    parser.add_argument("--port", default=None,
-                        help="Serial port (e.g. COM3). Auto-detected if omitted.")
-    parser.add_argument("--baud", type=int, default=BAUD_RATE,
-                        help=f"Baud rate (default: {BAUD_RATE})")
-    parser.add_argument("--list", action="store_true",
-                        help="List available serial ports and exit")
+    parser.add_argument(
+        "--port",
+        default=None,
+        help="Serial port (e.g. COM3). Auto-detected if omitted.",
+    )
+    parser.add_argument(
+        "--baud", type=int, default=BAUD_RATE, help=f"Baud rate (default: {BAUD_RATE})"
+    )
+    parser.add_argument(
+        "--list", action="store_true", help="List available serial ports and exit"
+    )
     args = parser.parse_args()
 
     # If --list is passed, just show available ports and exit
@@ -113,7 +119,7 @@ def main():
     # Generate a unique session filename using the current timestamp
     session_ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = LOG_DIR / LOG_FILE_TPL.format(session_ts)
-    session_data = []       # Accumulates all parsed rows for the session CSV
+    session_data = []  # Accumulates all parsed rows for the session CSV
 
     print(f"\nConnecting to {args.port} at {args.baud} baud ...")
     if logger:
@@ -121,9 +127,11 @@ def main():
 
     # Attempt to open the serial port
     try:
-        ser = serial.Serial(args.port, args.baud, timeout=SERIAL_CONFIG.get("timeout", 2))
+        ser = serial.Serial(
+            args.port, args.baud, timeout=SERIAL_CONFIG.get("timeout", 2)
+        )
         if logger:
-            logger.info(f"Serial connection opened successfully")
+            logger.info("Serial connection opened successfully")
     except serial.SerialException as e:
         print(f"ERROR: Could not open serial port — {e}")
         if logger:
@@ -145,13 +153,15 @@ def main():
                     logger.error(f"Serial read error: {e}")
                 print(f"Serial read error: {e}")
                 continue
-                
+
             if not raw:
                 continue
 
             # Decode bytes to string, ignoring any malformed characters
             try:
-                line = raw.decode(SERIAL_CONFIG.get("encoding", "utf-8"), errors="ignore").strip()
+                line = raw.decode(
+                    SERIAL_CONFIG.get("encoding", "utf-8"), errors="ignore"
+                ).strip()
             except Exception as e:
                 if logger:
                     logger.warning(f"Decode error: {e}")
@@ -225,7 +235,9 @@ def main():
                 print(f"Min TTC: {df['ttc_basic'].min():.2f} s")
                 print(f"CRITICAL events: {(df['risk_class'] == 2).sum()}")
                 if logger:
-                    logger.info(f"Session saved: {len(session_data)} rows to {log_file}")
+                    logger.info(
+                        f"Session saved: {len(session_data)} rows to {log_file}"
+                    )
             except Exception as e:
                 print(f"Error saving session: {e}")
                 if logger:
