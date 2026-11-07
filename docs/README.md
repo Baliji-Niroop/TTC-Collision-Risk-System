@@ -17,7 +17,5 @@
 
 ## Developer guides
 
-- [Project map](dev/project-map.md)
-- [Naming and structure policy](dev/naming-and-structure-policy.md)
-- [Simulation validation checklist](dev/simulation-validation-checklist.md)
-- [Wokwi bridge and build-artifact guide](dev/wokwi-bridge-smoke-test.md)
+- [Contribution conventions](dev/contributing.md)
+- [Simulation and Wokwi validation](dev/simulation-and-wokwi-validation.md)

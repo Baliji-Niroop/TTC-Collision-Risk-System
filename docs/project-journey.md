@@ -6,7 +6,7 @@ This repository is an educational prototype for exploring longitudinal TTC alert
 
 - Firmware source reads distance and wheel-encoder inputs, calculates TTC, updates LEDs and a buzzer, and emits the seven-field serial packet.
 - Python tools provide a terminal demo, synthetic telemetry, serial reading, packet validation, replay, and a Streamlit dashboard.
-- The repository includes a Wokwi circuit description and wiring documentation. A compiled Wokwi firmware image is not checked in; see [the developer Wokwi guide](dev/wokwi-bridge-smoke-test.md).
+- The repository includes a Wokwi circuit description and wiring documentation. A compiled Wokwi firmware image is not checked in; see [the simulation and Wokwi guide](dev/simulation-and-wokwi-validation.md).
 - The optional training script fits a Random Forest for the dashboard and a threshold decision tree for C++ export. The firmware feature flag for the tree is disabled by default.
 
 ## Evaluation and limits

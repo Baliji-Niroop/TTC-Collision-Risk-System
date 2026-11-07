@@ -95,4 +95,4 @@ Assembly is accepted only when:
 - `firmware/main.ino`
 - `firmware/pinmap.h`
 - `hardware/wiring_guide.md`
-- `docs/dev/simulation-validation-checklist.md`
+- `docs/dev/simulation-and-wokwi-validation.md`

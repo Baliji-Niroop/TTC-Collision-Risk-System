@@ -124,8 +124,6 @@ The current live dashboard reads the log or its own simulator. It does not route
 
 **Caption:** Short real capture of the dashboard as simulator values refresh.
 
-**Wokwi screenshot:** TODO — capture a real Wokwi run after preparing the local build artifacts.
-
 ## Main code areas
 
 | Area | Files |

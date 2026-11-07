@@ -92,7 +92,7 @@ python src/main.py --check
 
 ## 5. Running with Wokwi Simulation
 
-Wokwi uses the compiled paths in `wokwi.toml`. Build the root `TTC.ino` sketch and place the generated `.bin` and `.elf` files under `build/` as described in the [Wokwi bridge guide](dev/wokwi-bridge-smoke-test.md). Those build artifacts are not checked in.
+Wokwi uses the compiled paths in `wokwi.toml`. Build the root `TTC.ino` sketch and place the generated `.bin` and `.elf` files under `build/` as described in the [simulation and Wokwi guide](dev/simulation-and-wokwi-validation.md). Those build artifacts are not checked in.
 
 Start the bridge after the Wokwi simulation is producing serial output:
    ```bash

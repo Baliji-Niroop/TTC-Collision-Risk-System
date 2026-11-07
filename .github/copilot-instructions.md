@@ -46,5 +46,5 @@
 
 ## Docs
 - Telemetry contract: [docs/serial_protocol.md](../docs/serial_protocol.md)
-- Wokwi validation workflow: [docs/dev/wokwi-bridge-smoke-test.md](../docs/dev/wokwi-bridge-smoke-test.md)
-- Naming and folder policy: [docs/dev/naming-and-structure-policy.md](../docs/dev/naming-and-structure-policy.md)
+- Wokwi validation workflow: [docs/dev/simulation-and-wokwi-validation.md](../docs/dev/simulation-and-wokwi-validation.md)
+- Contribution conventions: [docs/dev/contributing.md](../docs/dev/contributing.md)
