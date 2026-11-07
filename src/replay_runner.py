@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from pathlib import Path
 
@@ -15,8 +16,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
-
-import sys
 
 # Ensure root and src directories are in path
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -45,7 +44,14 @@ def _atomic_write(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(".tmp")
     tmp_path.write_text(text, encoding="utf-8")
-    tmp_path.replace(path)
+    for attempt in range(5):
+        try:
+            tmp_path.replace(path)
+            return
+        except PermissionError:
+            if attempt == 4:
+                raise
+            time.sleep(0.1)
 
 
 def _load_session(path: Path) -> pd.DataFrame:

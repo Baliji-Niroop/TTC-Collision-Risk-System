@@ -1,117 +1,136 @@
-# System Architecture
+# Architecture and Diagrams
 
-This document describes the modular architecture, hardware-software interfaces, data flow, and code ownership across the TTC Collision Risk System.
-
----
-
-## 1. System Pipeline Overview
+## 1. System architecture
 
 ```mermaid
 flowchart LR
-    subgraph Hardware_Simulation["Layer 1: Sensing & Simulation"]
-        HW["ESP32 Microcontroller<br/>HC-SR04 + KY-040"]
-        WOK["Wokwi Simulator<br/>(diagram.json)"]
-    end
-
-    subgraph Embedded_Runtime["Layer 2: Firmware Pipeline (C++)"]
-        SF["Sensor Driver & Fusion<br/>(sensor_fusion.h)"]
-        TE["TTC Engine<br/>(ttc_engine.h)"]
-        RC["Risk Classifier & Rules<br/>(risk_classifier.h)"]
-        ML_EDGE["Decision Tree Inference<br/>(ml_classifier.h)"]
-        DISP["OLED & Buzzer Output<br/>(oled_display.h)"]
-    end
-
-    subgraph Telemetry_Bridge["Layer 3: Telemetry Stream"]
-        COM["Serial UART / Websocket<br/>(115200 baud)"]
-        BRIDGE["Wokwi Bridge<br/>(wokwi_serial_bridge.py)"]
-    end
-
-    subgraph Host_Analytics["Layer 4: Python Analytics & UI"]
-        VAL["Packet Validator<br/>(validators.py)"]
-        CORE["TTC Core Math<br/>(ttc_engine.py)"]
-        ALERTS["Alert Manager<br/>(alerts.py)"]
-        DASH["Streamlit Dashboard<br/>(dashboard.py)"]
-        LOGS["Session Logger<br/>(LOGS/live_data.txt)"]
-    end
-
-    HW --> SF
-    WOK --> SF
-    SF --> TE
-    TE --> RC
-    RC --> ML_EDGE
-    ML_EDGE --> DISP
-    RC --> COM
-    COM --> BRIDGE
-    BRIDGE --> VAL
-    VAL --> CORE
-    CORE --> ALERTS
-    ALERTS --> DASH
-    VAL --> LOGS
+    S["Distance sensor and wheel encoder"] --> E["ESP32 firmware"]
+    E --> U["USB serial: canonical 7-field packet"]
+    U --> R["Python serial_reader"]
+    R --> V["validators.py"]
+    V --> L["LOGS/live_data.txt"]
+    L --> D["Streamlit dashboard"]
+    W["Wokwi firmware simulation"] --> B["Wokwi serial bridge"]
+    B --> U
+    SIM["Python telemetry simulator"] --> L
 ```
 
----
+**Caption:** Firmware and Python simulation provide telemetry to the host validator and dashboard.
 
-## 2. Component Responsibility Matrix
+The Wokwi bridge forwards the simulator's stream to the configured virtual serial port. The bridge output port and serial reader port must be paired but different ports.
 
-| Layer | Module / File | Responsibility |
-|---|---|---|
-| **Entry Point** | `src/main.py` | Unified command-line interface for demo, session replay, dashboard launch, and verification. |
-| **Kinematics Engine** | `src/ttc_engine.py` | Standalone, unit-tested implementation of basic TTC, extended deceleration TTC, and risk thresholding. |
-| **Embedded Firmware** | `firmware/main.ino` | High-frequency execution loop ($10\,\text{Hz}$ / $100\,\text{ms}$) on ESP32; drives sensors and actuators. |
-| **Pin Mapping** | `firmware/pinmap.h` | Authoritative single source of truth for all GPIO assignments matching `diagram.json`. |
-| **Embedded Math** | `firmware/ml/ttc_engine.h` | Fixed circular buffer closing velocity estimator and C++ TTC calculations. |
-| **Telemetry Contract** | `firmware/config/serial_protocol.h` <br/> `src/telemetry_schema.py` | Serializes and parses the frozen 7-field telemetry string: `timestamp_ms,distance_cm,speed_kmh,ttc_basic,ttc_ext,risk_class,confidence`. |
-| **Data Ingestion** | `src/serial_reader.py` <br/> `bridge/wokwi_serial_bridge.py` | Reads streaming telemetry over physical serial COM ports or Wokwi websockets. |
-| **Validation & Safety** | `src/validators.py` <br/> `src/safety_features.py` | Checks packet syntax, handles sensor dropout, implements risk hysteresis deadbands, and ML-physics arbitration. |
-| **Visualization** | `src/dashboard.py` | Live interactive web dashboard with speedometers, TTC line charts, and danger alerts. |
+## 2. Risk states and hysteresis
 
----
+```mermaid
+stateDiagram-v2
+    [*] --> SAFE
+    SAFE --> WARNING: TTC <= 3.0 s and > 1.5 s
+    SAFE --> CRITICAL: TTC <= 1.5 s
+    WARNING --> CRITICAL: TTC <= 1.5 s
+    WARNING --> SAFE: TTC > 3.3 s
+    WARNING --> WARNING: 1.5 s < TTC <= 3.3 s
+    CRITICAL --> CRITICAL: TTC <= 1.8 s
+    CRITICAL --> WARNING: 1.8 s < TTC <= 3.3 s
+    CRITICAL --> SAFE: TTC > 3.3 s
+```
 
-## 3. Communication Sequence Diagram
+**Caption:** The threshold helper uses 1.5 s and 3.0 s boundaries and a 0.3 s de-escalation deadband.
 
-The sequence diagram below illustrates the exact timing and data propagation of a single sensor acquisition cycle ($100\,\text{ms}$):
+The base risk thresholds are defined in [`src/config.py`](../src/config.py). A 0.3 s deadband is configured by `RiskHysteresisFilter` in [`src/safety_features.py`](../src/safety_features.py). That helper is initialized by validation code but is not wired into the live dashboard's risk classification. [`src/alerts.py`](../src/alerts.py) throttles alert messages; it does not implement risk-state hysteresis. The state diagram documents the helper's behavior, not a claim that the live dashboard applies it.
+
+## 3. One firmware loop and telemetry packet
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    actor Driver as Driver / Obstacle
-    participant Sensors as HC-SR04 & Wheel Encoder
-    participant Firmware as ESP32 Firmware (main.ino)
-    participant Actuators as OLED / LEDs / Buzzer
-    participant Host as Python Bridge & Main (src/)
-    participant UI as Streamlit Live Dashboard
-
-    Note over Firmware: Every 100 ms loop timer fires
-    Sensors->>Firmware: Trigger pulse & read echo time (cm), encoder pulses (speed)
-    Firmware->>Firmware: Update 3-sample buffer & compute closing velocity
-    Firmware->>Firmware: Calculate TTC_basic & TTC_ext (kinematic quadratic)
-    Firmware->>Firmware: Classify Risk (Safe: >3s, Warn: 1.5-3s, Crit: <=1.5s)
-    Firmware->>Actuators: Update OLED display & toggle warning LEDs/Buzzer
-    Firmware->>Host: Transmit 7-field CSV string over UART (115200 baud)
-    Host->>Host: Validate packet fields, types, and physical limits
-    Host->>Host: Apply alert throttling & record to session CSV
-    Host->>UI: Update live TTC trend line and status gauges
+    participant Timer as Firmware loop
+    participant Sensor as Distance sensor / encoder
+    participant Calc as TTC and risk code
+    participant Output as LEDs / buzzer
+    participant Host as Serial host
+    Note over Timer: Sample when PACKET_INTERVAL_MS has elapsed (100 ms)
+    Timer->>Sensor: Read distance and host speed
+    Timer->>Calc: Estimate closing speed; calculate TTC values
+    Calc->>Calc: Classify risk (roadCondition is currently 0)
+    Calc->>Output: Update indicators
+    Calc->>Host: Emit one newline-terminated packet at 115200 baud
 ```
 
----
+**Caption:** Each due firmware sample reads sensors, calculates risk, updates outputs, and sends one packet.
 
-## 4. Hardware Pin Mapping & Circuit Layout
+Packet shape (values vary with the sensor readings):
 
-All physical wiring on the ESP32 DevKit-V1 is mapped deterministically in `firmware/pinmap.h`:
+```text
+timestamp_ms,distance_cm,speed_kmh,ttc_basic,ttc_ext,risk_class,confidence
+```
 
-| Function | Signal | ESP32 GPIO | Connected Component |
-|---|---|:---:|---|
-| Front Ultrasonic Sensor | Trigger (`TRIG`) | **GPIO 5** | HC-SR04 Front Sensor |
-| Front Ultrasonic Sensor | Echo (`ECHO`) | **GPIO 18** | HC-SR04 Front Sensor |
-| Secondary Sonar | Trigger (`TRIG`) | **GPIO 4** | HC-SR04 Rear/Aux Sensor |
-| Secondary Sonar | Echo (`ECHO`) | **GPIO 16** | HC-SR04 Rear/Aux Sensor |
-| Wheel Encoder | Clock (`CLK`) | **GPIO 19** | KY-040 Rotary Encoder |
-| Wheel Encoder | Data (`DT`) | **GPIO 23** | KY-040 Rotary Encoder |
-| I2C Bus | Data (`SDA`) | **GPIO 21** | SSD1306 OLED (0x3C), MPU6050 (0x68) |
-| I2C Bus | Clock (`SCL`) | **GPIO 22** | SSD1306 OLED (0x3C), MPU6050 (0x68) |
-| Active Buzzer | Alarm Signal | **GPIO 32** | 5V Active Piezo Buzzer |
-| Warning Actuator | Red LED (Critical) | **GPIO 12** | Ultra-bright Red LED |
-| Warning Actuator | Yellow LED 1 (Warning) | **GPIO 27** | Amber LED 1 |
-| Warning Actuator | Yellow LED 2 (Warning) | **GPIO 14** | Amber LED 2 |
-| Safe Headway Actuator | Green LED 1 (Safe) | **GPIO 25** | Green LED 1 |
-| Safe Headway Actuator | Green LED 2 (Safe) | **GPIO 26** | Green LED 2 |
+The loop cadence is configured in [`firmware/config/config.h`](../firmware/config/config.h); packet serialization is in [`firmware/config/serial_protocol.h`](../firmware/config/serial_protocol.h). The optional firmware tree is disabled by default.
+
+## 4. Hardware wiring
+
+```mermaid
+flowchart LR
+    ESP["ESP32 DevKit-V1"]
+    FRONT["Front HC-SR04"]
+    AUX["Secondary HC-SR04"]
+    ENC["KY-040 encoder"]
+    BUS["I2C bus: SDA GPIO21 / SCL GPIO22"]
+    OLED["SSD1306 OLED"]
+    IMU["MPU6050"]
+    LEDS["Five LEDs: GPIO25, 26, 27, 14, 12"]
+    BUZZER["Active buzzer: GPIO32"]
+    FRONT -->|"TRIG GPIO5 / ECHO GPIO18"| ESP
+    AUX -->|"TRIG GPIO4 / ECHO GPIO16"| ESP
+    ENC -->|"CLK GPIO19 / DT GPIO23"| ESP
+    ESP --> BUS
+    BUS --> OLED
+    BUS --> IMU
+    ESP --> LEDS
+    ESP --> BUZZER
+```
+
+**Caption:** Signal assignments follow [`firmware/pinmap.h`](../firmware/pinmap.h) and the [hardware wiring guide](../hardware/wiring_guide.md).
+
+The diagram summarizes signal pins; it is not a complete power or signal-conditioning schematic. Check the wiring guide before connecting physical components.
+
+## 5. Python data flows
+
+```mermaid
+flowchart TD
+    ESP["ESP32 serial"] --> SR["serial_reader.py"]
+    SIM["serial_simulator.py"] --> LOG["LOGS/live_data.txt"]
+    SR --> VAL["validators.py"]
+    VAL --> LOG
+    LOG --> DASH["dashboard.py"]
+    CSV["Recorded or synthetic CSV"] --> REPLAY["replay_runner.py"]
+    REPLAY --> PARSE["validators.py / telemetry_schema.py"]
+    PARSE --> INFER["Optional model or rule fallback"]
+    INFER --> ALERT["alerts.py"]
+    INFER --> ANA["analytics.py"]
+    DEMO["main.py --demo"] --> TTC["ttc_engine.py"]
+    TTC --> TERM["Terminal output"]
+```
+
+**Caption:** Live telemetry is validated and written to a log; replay uses the analytics pipeline, while the terminal demo uses the standalone TTC engine.
+
+The current live dashboard reads the log or its own simulator. It does not route packets through `ttc_engine.py` and `analytics.py`; those modules are used by the demo and replay paths respectively.
+
+## 6. Dashboard capture
+
+![Dashboard with simulated telemetry](images/dashboard.png)
+
+**Caption:** Real browser capture of the dashboard running with simulated telemetry.
+
+![Dashboard GIF with simulated telemetry](images/dashboard.gif)
+
+**Caption:** Short real capture of the dashboard as simulator values refresh.
+
+## Main code areas
+
+| Area | Files |
+|---|---|
+| Firmware entry and pin map | `firmware/main.ino`, `firmware/pinmap.h` |
+| Firmware protocol and thresholds | `firmware/config/serial_protocol.h`, `firmware/config/config.h` |
+| Python CLI and dashboard | `src/main.py`, `src/dashboard.py` |
+| Serial ingestion and validation | `src/serial_reader.py`, `src/validators.py`, `src/telemetry_schema.py` |
+| Local simulation and replay | `src/serial_simulator.py`, `src/replay_runner.py` |
+| Optional model training | `ml/training/train_model.py`, `ml/inference/__init__.py` |

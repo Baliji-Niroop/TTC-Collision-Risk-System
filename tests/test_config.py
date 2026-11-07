@@ -11,6 +11,10 @@ def test_telemetry_fields_count():
     assert len(config.TELEMETRY_FIELDS) == 7
 
 
+def test_dataset_path_uses_single_data_directory():
+    assert config.DATASET_DIR == config.ROOT_DIR / "data"
+
+
 def test_telemetry_fields_order():
     """Verify canonical telemetry field order."""
     expected_order = (

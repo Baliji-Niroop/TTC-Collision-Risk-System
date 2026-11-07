@@ -14,7 +14,6 @@ Units:
 from __future__ import annotations
 
 import math
-from typing import Tuple
 
 
 # Default ADAS Time-To-Collision risk thresholds (seconds)

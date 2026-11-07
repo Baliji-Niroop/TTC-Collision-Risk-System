@@ -29,10 +29,10 @@ for p in (ROOT_DIR, SRC_DIR):
 
 try:
     from ttc_engine import compute_ttc_basic, compute_ttc_extended, classify_risk
-    from config import RISK_LABELS, RISK_THRESHOLDS
+    from config import DATASET_DIR, RISK_LABELS, RISK_THRESHOLDS
 except ImportError:
     from src.ttc_engine import compute_ttc_basic, compute_ttc_extended, classify_risk
-    from src.config import RISK_LABELS, RISK_THRESHOLDS
+    from src.config import DATASET_DIR, RISK_LABELS, RISK_THRESHOLDS
 
 
 def run_demo(steps: int = 20, delay_s: float = 0.25) -> None:
@@ -89,7 +89,12 @@ def run_replay(csv_file: Path) -> None:
 
     print(f"Replaying session from: {csv_file}")
     replay_script = SRC_DIR / "replay_runner.py"
-    subprocess.run([sys.executable, str(replay_script), "--input", str(csv_file)])
+    result = subprocess.run(
+        [sys.executable, str(replay_script), "--input", str(csv_file)]
+    )
+    if result.returncode != 0:
+        print("[ERROR] Replay failed.")
+        sys.exit(result.returncode)
 
 
 def run_dashboard() -> None:
@@ -106,7 +111,7 @@ def run_checks() -> None:
     print("=" * 60)
 
     # 1. Pytest
-    print("\n[1/3] Running Pytest Unit Tests...")
+    print("\n[1/4] Running Pytest Unit Tests...")
     res_pytest = subprocess.run([sys.executable, "-m", "pytest", "-q"])
     if res_pytest.returncode != 0:
         print("[FAIL] Pytest failed.")
@@ -114,7 +119,7 @@ def run_checks() -> None:
     print("[PASS] Unit tests passed.")
 
     # 2. Protocol Contract Test
-    print("\n[2/3] Checking 7-Field Telemetry Contract...")
+    print("\n[2/4] Checking 7-Field Telemetry Contract...")
     protocol_script = ROOT_DIR / "validation" / "protocol_contract_test.py"
     res_proto = subprocess.run([sys.executable, str(protocol_script)])
     if res_proto.returncode != 0:
@@ -122,11 +127,33 @@ def run_checks() -> None:
         sys.exit(res_proto.returncode)
 
     # 3. Pin Validator
-    print("\n[3/3] Validating Pin Mapping Consistency...")
+    print("\n[3/4] Validating Pin Mapping Consistency...")
     pin_script = ROOT_DIR / "validation" / "pin_validator.py"
-    subprocess.run([sys.executable, str(pin_script)])
+    res_pins = subprocess.run([sys.executable, str(pin_script)])
+    if res_pins.returncode == 1:
+        print("[WARN] Pin mapping validation reported non-critical warnings.")
+    elif res_pins.returncode != 0:
+        print("[FAIL] Pin mapping validation failed.")
+        sys.exit(res_pins.returncode)
 
-    print("\nVerification suite completed successfully.")
+    print("\n[4/4] Running Flake8...")
+    res_lint = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "flake8",
+            "src",
+            "ml",
+            "validation",
+            "bridge",
+            "tests",
+        ]
+    )
+    if res_lint.returncode != 0:
+        print("[FAIL] Flake8 failed.")
+        sys.exit(res_lint.returncode)
+
+    print("\nVerification suite completed.")
 
 
 def main() -> None:
@@ -142,7 +169,7 @@ def main() -> None:
         "--replay",
         type=Path,
         nargs="?",
-        const=ROOT_DIR / "data" / "synthetic_ttc_validation.csv",
+        const=DATASET_DIR / "synthetic_ttc_validation.csv",
         help="Replay a CSV session (defaults to data/synthetic_ttc_validation.csv)",
     )
     parser.add_argument(

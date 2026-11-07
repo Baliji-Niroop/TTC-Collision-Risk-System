@@ -44,6 +44,12 @@ This guide defines the supported wiring layout for TTC hardware bring-up.
 - Use active buzzer module for direct digital drive.
 - Keep I2C bus wiring short and clean.
 - Do not deviate from firmware/pinmap.h unless firmware is updated in the same change.
+- Check the HC-SR04 ECHO output level and use suitable level shifting before
+  connecting a 5 V output to an ESP32 GPIO.
+
+This pin table is not a full power or signal-conditioning schematic. Verify
+module voltage requirements and resistor/level-shifter connections before
+powering physical hardware.
 
 ## Optional Sensors
 

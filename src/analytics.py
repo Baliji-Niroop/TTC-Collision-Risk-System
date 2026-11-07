@@ -154,7 +154,7 @@ class SessionAnalytics:
 
 
 def calculate_collision_probability(ttc: float, confidence: float = 1.0) -> float:
-    """Estimate collision probability based on TTC and model confidence."""
+    """Return an uncalibrated TTC heuristic score, not a measured probability."""
     if ttc <= 0.5:
         prob = 0.95
     elif ttc <= 1.0:

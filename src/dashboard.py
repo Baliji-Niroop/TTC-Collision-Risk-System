@@ -26,6 +26,7 @@ from pathlib import Path
 # Third-party
 import pandas as pd
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
 
 # Project imports
 try:
@@ -40,6 +41,7 @@ try:
     from logger import get_logger
     from validators import validate_csv_line
     from alerts import check_and_alert
+    from risk_policy import resolve_dashboard_risk
     from telemetry_schema import parse_packet
 except ImportError as e:
     # Fallback if modules not found
@@ -81,6 +83,17 @@ except ImportError as e:
 
     def parse_packet(_line):
         return None
+
+    def resolve_dashboard_risk(
+        predicted_risk, ttc_seconds, model_available, warning_threshold_s, critical_threshold_s
+    ):
+        if model_available:
+            return int(predicted_risk)
+        if ttc_seconds <= critical_threshold_s:
+            return 2
+        if ttc_seconds <= warning_threshold_s:
+            return 1
+        return 0
 
 
 # Logging
@@ -176,14 +189,13 @@ def _load_model():
     try:
         import joblib
         import sklearn
+        from packaging.version import Version
 
-        _req_ver = "1.7.1"
-        if sklearn.__version__ != _req_ver:
+        if not Version("1.7.1") <= Version(sklearn.__version__) < Version("2.0"):
             st.sidebar.warning(
-                f"⚠️ scikit-learn version mismatch: "
-                f"installed={sklearn.__version__}, pinned={_req_ver}. "
-                "Model predictions may be unreliable. Run: "
-                f"`pip install scikit-learn=={_req_ver}`"
+                f"scikit-learn {sklearn.__version__} does not meet the "
+                "requirements.txt range (>=1.7.1,<2.0). Reinstall runtime "
+                "requirements before using the optional model."
             )
         if MODEL_PATH.exists():
             return joblib.load(MODEL_PATH)
@@ -411,8 +423,7 @@ def ml_predict(row: dict) -> int:
     """
     Predict the collision risk class using the ML model.
 
-    The Random Forest model was trained on five features:
-        speed, distance, closing_vel, ttc, road
+    The optional Random Forest uses the six features from the training script.
 
     If the model is not available (file missing or load failed), the
     function uses the packet-provided risk class.
@@ -433,8 +444,7 @@ def ml_predict(row: dict) -> int:
             close_vel = d_m / max(ttc, 0.1)  # Approximate closing velocity (m/s)
 
         feature_dict = {
-            "v_host": spd,
-            "distance": d_m,  # Note: training feature list says ttc_basic, ttc_ext, v_host, v_closing, a_decel, road_flag
+            "v_host": spd / 3.6,
             "v_closing": close_vel,
             "ttc_basic": ttc,
             "ttc_ext": row.get("ttc_ext", ttc),
@@ -621,8 +631,10 @@ if missing_fields:
 
 # --- Process: classify risk, update session stats ---
 
-risk = ml_predict(row)
 ttc_b = row["ttc_basic"]
+risk = resolve_dashboard_risk(
+    ml_predict(row), ttc_b, model is not None, thresh_warn, thresh_crit
+)
 
 # Update latency display in sidebar
 _t_pipeline_ms = (time.perf_counter() - _t_fetch_start) * 1000
@@ -632,18 +644,13 @@ _latency_placeholder.markdown(f"**Pipeline latency:** {_t_pipeline_ms:.1f} ms")
 if row.get("anomaly_flag", False):
     logger.warning(f"Anomaly detected in telemetry: {row}")
 
-# Check for alerts
+# Alerts and all UI state use the same resolved risk level.
 try:
     check_and_alert(risk, row)
 except TypeError as e:
     logger.error(f"Invalid data type in alert system: {e}")
 except Exception as e:
     logger.error(f"Unexpected error in alert system: {e}", exc_info=True)
-
-# When the ML model is not available, apply the user-configured thresholds
-# for the physics-based fallback classifier.
-if model is None:
-    risk = 0 if ttc_b > thresh_warn else (1 if ttc_b > thresh_crit else 2)
 
 # Update running session statistics
 if ttc_b < st.session_state.min_ttc:
@@ -917,7 +924,11 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Auto-refresh loop
+# Schedule refreshes in the browser so the dashboard can finish rendering
+# between updates instead of immediately rerunning the whole script.
 if auto_refresh:
-    time.sleep(REFRESH_SEC)
-    st.rerun()
+    st_autorefresh(
+        interval=max(100, int(REFRESH_SEC * 1000)),
+        limit=None,
+        key="ttc_dashboard_autorefresh",
+    )

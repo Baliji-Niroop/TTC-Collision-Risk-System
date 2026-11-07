@@ -11,7 +11,7 @@
 - Ingestion and normalization live in [src/serial_reader.py](../src/serial_reader.py), [src/serial_simulator.py](../src/serial_simulator.py), and [bridge/wokwi_serial_bridge.py](../bridge/wokwi_serial_bridge.py).
 - UI and runtime analytics live in [src/dashboard.py](../src/dashboard.py), [src/alerts.py](../src/alerts.py), and [src/analytics.py](../src/analytics.py).
 - Replay and validation workflows live in [src/replay_runner.py](../src/replay_runner.py) and [validation](../validation).
-- Optional ML inference must degrade gracefully to TTC threshold logic in [ml/inference/__init__.py](../ml/inference/__init__.py) and [src/dashboard.py](../src/dashboard.py).
+- Optional dashboard model inference degrades to TTC threshold logic in [ml/inference/__init__.py](../ml/inference/__init__.py) and [src/dashboard.py](../src/dashboard.py). Model evaluation must fail clearly when no trained model is available.
 
 ## Build and Test
 - Preferred Windows launcher (simulator + dashboard):
@@ -27,10 +27,13 @@
     python -m venv ttc_env
     .\ttc_env\Scripts\activate.bat
     pip install -r requirements.txt
+    pip install -r requirements-dev.txt
 
 - Validation commands:
 
+    .\ttc_env\Scripts\python.exe -m pytest
     .\ttc_env\Scripts\python.exe validation\protocol_contract_test.py
+    .\ttc_env\Scripts\python.exe ml\training\train_model.py
     .\ttc_env\Scripts\python.exe validation\evaluate_synthetic.py
     .\ttc_env\Scripts\python.exe validation\compare_wokwi_baseline.py --input LOGS\session_YYYYMMDD_HHMMSS.csv
 
@@ -38,10 +41,10 @@
 - Treat telemetry as a frozen 7-field contract in this exact order: timestamp_ms, distance_cm, speed_kmh, ttc_basic, ttc_ext, risk_class, confidence.
 - Keep TTC thresholds synchronized between [src/config.py](../src/config.py) and [firmware/config/config.h](../firmware/config/config.h): critical=1.5s, warning=3.0s.
 - Do not introduce hardcoded thresholds in feature modules; read from shared config.
-- Do not assume [MODELS/ml_model.pkl](../MODELS/ml_model.pkl) exists; preserve fallback behavior.
+- Do not assume [MODELS/ml_model.pkl](../MODELS/ml_model.pkl) exists; preserve the dashboard fallback and train before model evaluation.
 - For Wokwi virtual COM usage, bridge write port and reader port must be paired but different ports.
 
 ## Docs
 - Telemetry contract: [docs/serial_protocol.md](../docs/serial_protocol.md)
-- Wokwi validation workflow: [docs/wokwi_bridge_smoke_test.md](../docs/wokwi_bridge_smoke_test.md)
-- Naming and folder policy: [docs/naming-and-structure-policy.md](../docs/naming-and-structure-policy.md)
+- Wokwi validation workflow: [docs/dev/simulation-and-wokwi-validation.md](../docs/dev/simulation-and-wokwi-validation.md)
+- Contribution conventions: [docs/dev/contributing.md](../docs/dev/contributing.md)
