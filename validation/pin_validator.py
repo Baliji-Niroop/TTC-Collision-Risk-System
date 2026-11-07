@@ -204,18 +204,18 @@ def validate_pins(strict: bool = False) -> int:
             print(warn)
 
     if not errors and not warnings:
-        print("✓ All pins validated successfully!")
+        print("[OK] All pins validated successfully.")
         return 0
 
     if errors:
-        print("\n✗ Validation failed: Pin mismatches detected")
+        print("\n[ERROR] Validation failed: Pin mismatches detected.")
         return 2
 
     if warnings and strict:
-        print("\n⚠ Validation failed in strict mode: Warnings treated as errors")
+        print("\n[ERROR] Validation failed in strict mode: warnings treated as errors.")
         return 2
 
-    print("\n⚠ Validation passed with warnings")
+    print("\n[WARN] Validation passed with non-critical warnings.")
     return 1
 
 
