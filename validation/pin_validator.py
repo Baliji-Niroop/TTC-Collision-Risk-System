@@ -50,7 +50,7 @@ def parse_pinmap_h() -> Dict[str, int]:
         content = f.read()
 
     # Match: static const uint8_t PIN_NAME = <number>;
-    pattern = r"static\s+const\s+uint8_t\s+(\w+)\s*=\s*(\d+);"
+    pattern = r"static\s+const\s+uint8_t\s+(PIN_\w+)\s*=\s*(\d+);"
     for match in re.finditer(pattern, content):
         pin_name, pin_number = match.groups()
         pins[pin_name] = int(pin_number)
