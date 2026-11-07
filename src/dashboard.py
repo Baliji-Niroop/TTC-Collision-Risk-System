@@ -26,6 +26,7 @@ from pathlib import Path
 # Third-party
 import pandas as pd
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
 
 # Project imports
 try:
@@ -917,7 +918,11 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Auto-refresh loop
+# Schedule refreshes in the browser so the dashboard can finish rendering
+# between updates instead of immediately rerunning the whole script.
 if auto_refresh:
-    time.sleep(REFRESH_SEC)
-    st.rerun()
+    st_autorefresh(
+        interval=max(100, int(REFRESH_SEC * 1000)),
+        limit=None,
+        key="ttc_dashboard_autorefresh",
+    )

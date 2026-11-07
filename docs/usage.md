@@ -18,8 +18,14 @@ This guide provides step-by-step instructions to set up, run, validate, and test
 
 ### Windows
 ```bat
-python -m venv ttc_env
-ttc_env\Scripts\activate
+run_dashboard.bat
+```
+The launcher uses an existing `.venv` or `ttc_env`; if neither exists, it creates
+`ttc_env` and installs the runtime requirements.
+To set up the environment manually instead:
+```bat
+py -3 -m venv ttc_env
+ttc_env\Scripts\activate.bat
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 python -m pip install -r requirements-dev.txt
@@ -112,6 +118,8 @@ python ml/training/train_model.py
 
 | Problem | Cause | Solution |
 |---|---|---|
+| Dashboard launcher reports that Python is missing | Python or the Python Launcher is not on `PATH` | Install Python 3 and enable the Python Launcher or add `python.exe` to `PATH`, then run `run_dashboard.bat` again |
+| Dashboard dependencies fail to install | Network or package installation issue | Check your internet connection and rerun `run_dashboard.bat`; the launcher installs `requirements.txt` in the selected virtual environment when needed |
 | `ModuleNotFoundError: No module named 'src'` | Running from subfolder or missing python path | Run commands from project root or use `python -m src.main` |
 | Streamlit dashboard doesn't show data | Live data log empty | Run `python src/serial_simulator.py` in another terminal or use `--demo` |
 | Serial port access denied | Another program (e.g. Arduino Serial Monitor) has locked the COM port | Close Arduino Serial Monitor before starting `serial_reader.py` |
