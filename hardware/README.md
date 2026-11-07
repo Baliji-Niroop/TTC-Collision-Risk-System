@@ -1,6 +1,6 @@
 # Hardware Documentation
 
-This folder contains physical assembly and wiring guidance for TTC hardware.
+This folder contains wiring and assembly guidance for the TTC prototype.
 
 ## Files
 
@@ -11,6 +11,7 @@ This folder contains physical assembly and wiring guidance for TTC hardware.
 
 - Firmware pin assignment: `firmware/pinmap.h`
 - Firmware protocol contract: `firmware/config/serial_protocol.h`
+- The pin map is not a complete electrical schematic; check signal levels before connecting hardware.
 
 ## Read in this order
 

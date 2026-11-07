@@ -17,7 +17,7 @@ This policy is mandatory for all future contributions.
 - `tests/`: unit and integration tests.
 - `docs/`: architecture, protocol, and workflow documentation.
 - `hardware/`: physical wiring and assembly documentation.
-- `dataset/`: source datasets and synthetic inputs.
+- `data/`: checked-in synthetic dataset and its documentation.
 - `MODELS/`: optional model artifacts only.
 - `LOGS/`: runtime-generated logs only.
 
@@ -56,17 +56,9 @@ timestamp_ms,distance_cm,speed_kmh,ttc_basic,ttc_ext,risk_class,confidence
 
 No field aliases, reordering, or silent additions are allowed.
 
-## Validation Gate Requirement
+## Validation Gate
 
-Before merging any functional change, run:
-
-1. `Quality: Ensure Dev Dependencies`
-2. `Quality: Lint`
-3. `Quality: Unit Tests`
-4. `Quality: Protocol Contract`
-5. `Quality: Synthetic Validation`
-6. `Wokwi: Smoke Test`
-7. `Quality: Full Gate`
+Install `requirements-dev.txt`, then run `python -m pytest`, `python validation/protocol_contract_test.py`, and `python src/main.py --demo`. To refresh model results, run `python ml/training/train_model.py` before `python validation/evaluate_synthetic.py`. A Wokwi run additionally needs the local build artifacts described in [the Wokwi guide](wokwi-bridge-smoke-test.md).
 
 ## Cleanup Rules
 
