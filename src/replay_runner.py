@@ -16,12 +16,29 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from alerts import check_and_alert  # noqa: E402
-from analytics import SessionAnalytics, calculate_collision_probability, recommend_action  # noqa: E402
-from config import DATA_PATH, LOG_DIR, RISK_LABELS  # noqa: E402
-from ml.inference import load_model, predict_risk_with_confidence  # noqa: E402
-from telemetry_schema import format_packet, parse_packet  # noqa: E402
-from validators import validate_csv_line  # noqa: E402
+import sys
+
+# Ensure root and src directories are in path
+ROOT_DIR = Path(__file__).resolve().parents[1]
+SRC_DIR = Path(__file__).resolve().parent
+for p in (ROOT_DIR, SRC_DIR):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+
+try:
+    from alerts import check_and_alert  # noqa: E402
+    from analytics import SessionAnalytics, calculate_collision_probability, recommend_action  # noqa: E402
+    from config import DATA_PATH, LOG_DIR, RISK_LABELS  # noqa: E402
+    from ml.inference import load_model, predict_risk_with_confidence  # noqa: E402
+    from telemetry_schema import format_packet, parse_packet  # noqa: E402
+    from validators import validate_csv_line  # noqa: E402
+except ImportError:
+    from src.alerts import check_and_alert  # noqa: E402
+    from src.analytics import SessionAnalytics, calculate_collision_probability, recommend_action  # noqa: E402
+    from src.config import DATA_PATH, LOG_DIR, RISK_LABELS  # noqa: E402
+    from ml.inference import load_model, predict_risk_with_confidence  # noqa: E402
+    from src.telemetry_schema import format_packet, parse_packet  # noqa: E402
+    from src.validators import validate_csv_line  # noqa: E402
 
 
 def _atomic_write(path: Path, text: str) -> None:
