@@ -2,7 +2,6 @@
 Unit tests for the core TTC kinematic calculation engine (src.ttc_engine).
 """
 
-import pytest
 from src.ttc_engine import (
     compute_ttc_basic,
     compute_ttc_extended,
