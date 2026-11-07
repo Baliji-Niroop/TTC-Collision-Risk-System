@@ -18,7 +18,7 @@ MODEL_PATH = ROOT_DIR / "MODELS" / "ml_model.pkl"
 DATA_PATH = ROOT_DIR / "LOGS" / "live_data.txt"
 LOG_DIR = ROOT_DIR / "LOGS"
 CONFIG_FILE = ROOT_DIR / "config.json"
-DATASET_DIR = ROOT_DIR / "dataset"
+DATASET_DIR = ROOT_DIR / "data"
 VALIDATION_DIR = ROOT_DIR / "validation"
 REPORTS_DIR = VALIDATION_DIR / "outputs"
 

@@ -52,7 +52,7 @@ def _feature_frame(row: Dict[str, Any], model) -> pd.DataFrame:
     feature_map = {
         "ttc_basic": ttc_basic,
         "ttc_ext": float(row.get("ttc_ext", ttc_basic)),
-        "v_host": speed_kmh,
+        "v_host": speed_kmh / 3.6,
         "v_closing": closing_vel,
         "a_decel": a_decel,
         "road_flag": float(row.get("road_flag", row.get("road", 0.0))),

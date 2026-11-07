@@ -1,7 +1,4 @@
-"""
-evaluate_synthetic.py
-Run the synthetic TTC dataset through the ML/physics pipeline and save reports.
-"""
+"""Evaluate a trained model on scenarios kept out of model training."""
 
 from __future__ import annotations
 
@@ -24,11 +21,17 @@ if str(ROOT_DIR) not in sys.path:
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from config import DATASET_DIR, VALIDATION_DIR, RISK_LABELS  # noqa: E402
-from ml.inference import load_model, predict_risk_with_confidence  # noqa: E402
+from config import DATASET_DIR, MODEL_PATH, RISK_LABELS, RISK_THRESHOLDS, VALIDATION_DIR  # noqa: E402
+from ml.inference import load_model  # noqa: E402
+from ml.training.split import (  # noqa: E402
+    FEATURE_COLUMNS,
+    TARGET_COLUMN,
+    scenario_train_test_indices,
+)
 
 DATASET_FILE = DATASET_DIR / "synthetic_ttc_validation.csv"
 OUTPUT_DIR = VALIDATION_DIR / "outputs"
+RESULTS_DIR = ROOT_DIR / "results"
 
 
 def false_alarm_rate(
@@ -47,7 +50,7 @@ def critical_recall(report_dict: dict) -> float:
 
 
 def save_confusion_matrix(
-    y_true: np.ndarray, y_pred: np.ndarray, output_path: Path
+    y_true: np.ndarray, y_pred: np.ndarray, output_path: Path, title: str
 ) -> None:
     labels = [0, 1, 2]
     matrix = confusion_matrix(y_true, y_pred, labels=labels)
@@ -57,7 +60,7 @@ def save_confusion_matrix(
     ax.set_yticks(labels, [RISK_LABELS[label] for label in labels])
     ax.set_xlabel("Predicted")
     ax.set_ylabel("Actual")
-    ax.set_title("Synthetic TTC Confusion Matrix")
+    ax.set_title(title)
 
     for i in range(matrix.shape[0]):
         for j in range(matrix.shape[1]):
@@ -129,23 +132,43 @@ def main() -> None:
         )
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    df = pd.read_csv(DATASET_FILE)
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    data = pd.read_csv(DATASET_FILE)
+    data = data.dropna(subset=FEATURE_COLUMNS + [TARGET_COLUMN, "scenario"])
+    train_indices, test_indices = scenario_train_test_indices(data)
+    test_df = data.iloc[test_indices].copy()
+
     model = load_model()
+    if model is None:
+        raise RuntimeError(
+            f"No trained model could be loaded from {MODEL_PATH}. "
+            "Run `python ml/training/train_model.py` first; no model metrics "
+            "were produced."
+        )
+    if not hasattr(model, "predict") or not hasattr(model, "predict_proba"):
+        raise TypeError("The loaded model must implement predict and predict_proba.")
 
-    if "ground_truth_risk_class" not in df.columns:
-        df["ground_truth_risk_class"] = df["risk_class"]
+    y_true = test_df[TARGET_COLUMN].astype(int).to_numpy()
+    features = test_df[FEATURE_COLUMNS]
+    y_pred = model.predict(features).astype(int)
+    test_df["predicted_risk_class"] = y_pred
+    test_df["predicted_confidence"] = model.predict_proba(features).max(axis=1)
+    test_df["correct"] = y_pred == y_true
 
-    predictions = df.apply(
-        lambda row: predict_risk_with_confidence(row.to_dict(), model), axis=1
+    critical_threshold = test_df.get(
+        "wet_critical_threshold_s", pd.Series(index=test_df.index, dtype=float)
+    ).fillna(RISK_THRESHOLDS["critical"])
+    warning_threshold = test_df.get(
+        "wet_warning_threshold_s", pd.Series(index=test_df.index, dtype=float)
+    ).fillna(RISK_THRESHOLDS["warning"])
+    ttc = test_df["ttc_basic"].to_numpy()
+    rule_predictions = np.where(
+        ttc <= critical_threshold.to_numpy(),
+        2,
+        np.where(ttc <= warning_threshold.to_numpy(), 1, 0),
     )
-    df["predicted_risk_class"] = predictions.apply(lambda value: int(value[0]))
-    df["predicted_confidence"] = predictions.apply(lambda value: float(value[1]))
-    df["correct"] = df["predicted_risk_class"] == df["ground_truth_risk_class"]
 
-    y_true = df["ground_truth_risk_class"].astype(int).to_numpy()
-    y_pred = df["predicted_risk_class"].astype(int).to_numpy()
-
-    report = classification_report(
+    model_report = classification_report(
         y_true,
         y_pred,
         labels=[0, 1, 2],
@@ -153,45 +176,103 @@ def main() -> None:
         output_dict=True,
         zero_division=0,
     )
-    report_text = classification_report(
+    model_report_text = classification_report(
         y_true,
         y_pred,
         labels=[0, 1, 2],
         target_names=[RISK_LABELS[label] for label in [0, 1, 2]],
         zero_division=0,
     )
+    rule_report = classification_report(
+        y_true,
+        rule_predictions,
+        labels=[0, 1, 2],
+        target_names=[RISK_LABELS[label] for label in [0, 1, 2]],
+        output_dict=True,
+        zero_division=0,
+    )
+    rule_report_text = classification_report(
+        y_true,
+        rule_predictions,
+        labels=[0, 1, 2],
+        target_names=[RISK_LABELS[label] for label in [0, 1, 2]],
+        zero_division=0,
+    )
 
-    matrix = confusion_matrix(y_true, y_pred, labels=[0, 1, 2])
-    critical_idx = 2
-    critical_recall_value = critical_recall(report)
-    far = false_alarm_rate(y_true, y_pred, positive_class=critical_idx)
+    model_matrix = confusion_matrix(y_true, y_pred, labels=[0, 1, 2])
+    model_metrics = {
+        "accuracy": float(np.mean(y_true == y_pred)),
+        "critical_recall": critical_recall(model_report),
+        "false_alarm_rate": false_alarm_rate(y_true, y_pred),
+        "confusion_matrix": model_matrix.tolist(),
+        "classification_report": model_report,
+    }
+    rule_metrics = {
+        "accuracy": float(np.mean(y_true == rule_predictions)),
+        "critical_recall": critical_recall(rule_report),
+        "false_alarm_rate": false_alarm_rate(y_true, rule_predictions),
+        "confusion_matrix": confusion_matrix(
+            y_true, rule_predictions, labels=[0, 1, 2]
+        ).tolist(),
+        "classification_report": rule_report,
+    }
 
-    df.to_csv(OUTPUT_DIR / "synthetic_predictions.csv", index=False)
-    (OUTPUT_DIR / "classification_report.txt").write_text(report_text, encoding="utf-8")
+    test_df.to_csv(OUTPUT_DIR / "synthetic_predictions.csv", index=False)
+    (OUTPUT_DIR / "classification_report.txt").write_text(
+        "MODEL: Random Forest trained on scenario-disjoint TRAIN split\n"
+        + model_report_text
+        + "\nRULE BASELINE: TTC threshold rule on held-out TEST split\n"
+        + rule_report_text,
+        encoding="utf-8",
+    )
     (OUTPUT_DIR / "summary.json").write_text(
         json.dumps(
             {
                 "dataset": str(DATASET_FILE),
-                "model_loaded": model is not None,
-                "rows": int(len(df)),
-                "accuracy": float((df["correct"].mean() if len(df) else 0.0)),
-                "critical_recall": critical_recall_value,
-                "false_alarm_rate": far,
-                "confusion_matrix": matrix.tolist(),
+                "evaluation": "scenario-held-out",
+                "model": "Random Forest",
+                "train_rows": int(len(train_indices)),
+                "test_rows": int(len(test_df)),
+                "train_scenarios": sorted(
+                    data.iloc[train_indices]["scenario"].unique().tolist()
+                ),
+                "test_scenarios": sorted(test_df["scenario"].unique().tolist()),
+                "model_metrics": model_metrics,
+                "rule_baseline_metrics": rule_metrics,
             },
             indent=2,
         ),
         encoding="utf-8",
     )
 
-    save_confusion_matrix(y_true, y_pred, OUTPUT_DIR / "confusion_matrix.png")
-    save_scenario_plot(df, OUTPUT_DIR / "scenario_summary.png")
-    save_timeline_plot(df, OUTPUT_DIR / "timeline_summary.png")
+    save_confusion_matrix(
+        y_true,
+        y_pred,
+        RESULTS_DIR / "confusion_matrix.png",
+        "Random Forest: Held-Out Scenario Test",
+    )
+    save_scenario_plot(test_df, OUTPUT_DIR / "scenario_summary.png")
+    save_timeline_plot(test_df, OUTPUT_DIR / "timeline_summary.png")
 
-    print(f"Saved reports to {OUTPUT_DIR}")
-    print(f"Critical recall: {critical_recall_value:.3f}")
-    print(f"False alarm rate: {far:.3f}")
-    print(report_text)
+    test_scenarios = sorted(test_df["scenario"].unique().tolist())
+    print(f"Trained model loaded from {MODEL_PATH}")
+    print(f"Train scenarios: {sorted(data.iloc[train_indices]['scenario'].unique())}")
+    print(f"Test scenarios: {test_scenarios}")
+    print(
+        "Random Forest held-out metrics: "
+        f"accuracy={model_metrics['accuracy']:.3f}, "
+        f"critical recall={model_metrics['critical_recall']:.3f}, "
+        f"critical false-alarm rate={model_metrics['false_alarm_rate']:.3f}"
+    )
+    print(
+        "TTC rule baseline held-out metrics: "
+        f"accuracy={rule_metrics['accuracy']:.3f}, "
+        f"critical recall={rule_metrics['critical_recall']:.3f}, "
+        f"critical false-alarm rate={rule_metrics['false_alarm_rate']:.3f}"
+    )
+    print(f"Saved reports to {OUTPUT_DIR} and {RESULTS_DIR / 'confusion_matrix.png'}")
+    print("\nRandom Forest classification report:")
+    print(model_report_text)
 
 
 if __name__ == "__main__":

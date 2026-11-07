@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        python-version: ["3.11"]
+        python-version: ["3.10", "3.11", "3.12"]
 
     steps:
       - name: Checkout
@@ -31,7 +31,10 @@ jobs:
       - name: Protocol contract validation
         run: python validation/protocol_contract_test.py
 
-      - name: Synthetic evaluation
+      - name: Train optional models
+        run: python ml/training/train_model.py
+
+      - name: Scenario-held-out synthetic evaluation
         run: python validation/evaluate_synthetic.py
 
       - name: Run tests

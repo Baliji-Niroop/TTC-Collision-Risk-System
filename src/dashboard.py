@@ -177,14 +177,13 @@ def _load_model():
     try:
         import joblib
         import sklearn
+        from packaging.version import Version
 
-        _req_ver = "1.7.1"
-        if sklearn.__version__ != _req_ver:
+        if not Version("1.7.1") <= Version(sklearn.__version__) < Version("2.0"):
             st.sidebar.warning(
-                f"⚠️ scikit-learn version mismatch: "
-                f"installed={sklearn.__version__}, pinned={_req_ver}. "
-                "Model predictions may be unreliable. Run: "
-                f"`pip install scikit-learn=={_req_ver}`"
+                f"scikit-learn {sklearn.__version__} does not meet the "
+                "requirements.txt range (>=1.7.1,<2.0). Reinstall runtime "
+                "requirements before using the optional model."
             )
         if MODEL_PATH.exists():
             return joblib.load(MODEL_PATH)
@@ -412,8 +411,7 @@ def ml_predict(row: dict) -> int:
     """
     Predict the collision risk class using the ML model.
 
-    The Random Forest model was trained on five features:
-        speed, distance, closing_vel, ttc, road
+    The optional Random Forest uses the six features from the training script.
 
     If the model is not available (file missing or load failed), the
     function uses the packet-provided risk class.
@@ -434,8 +432,7 @@ def ml_predict(row: dict) -> int:
             close_vel = d_m / max(ttc, 0.1)  # Approximate closing velocity (m/s)
 
         feature_dict = {
-            "v_host": spd,
-            "distance": d_m,  # Note: training feature list says ttc_basic, ttc_ext, v_host, v_closing, a_decel, road_flag
+            "v_host": spd / 3.6,
             "v_closing": close_vel,
             "ttc_basic": ttc,
             "ttc_ext": row.get("ttc_ext", ttc),
