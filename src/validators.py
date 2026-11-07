@@ -17,6 +17,7 @@ except ImportError:
     from src.logger import get_logger
     from src.telemetry_schema import parse_packet
 
+import math
 import statistics
 
 logger = get_logger(__name__)
@@ -91,8 +92,16 @@ def sanitize_telemetry_data(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         distance = float(row["distance_cm"])
         speed = float(row["speed_kmh"])
         ttc_basic = float(row["ttc_basic"])
+        ttc_ext = float(row["ttc_ext"])
         confidence = float(row["confidence"])
         risk_class = int(row["risk_class"])
+
+        if not all(
+            math.isfinite(value)
+            for value in (timestamp_ms, distance, speed, ttc_basic, ttc_ext, confidence)
+        ):
+            logger.warning("Non-finite numeric value detected in telemetry row")
+            return None
 
         # Check unrealistic values - REJECT these rows
         if speed > ANOMALY_CONFIG["max_speed_kmh"]:

@@ -2,7 +2,7 @@
 Unit tests for src/validators.py
 """
 
-from src.validators import detect_anomalies, validate_csv_line
+from src.validators import detect_anomalies, sanitize_telemetry_data, validate_csv_line
 
 
 def test_validate_csv_line_valid(sample_telemetry_line):
@@ -43,6 +43,20 @@ def test_validate_csv_line_negative_values():
     # Negative distance should be rejected
     result = validate_csv_line("1234,-100.0,50.0,3.0,3.1,0,0.9")
     assert result is None
+
+
+def test_sanitize_telemetry_rejects_non_finite_values():
+    row = {
+        "timestamp_ms": 1.0,
+        "distance_cm": 100.0,
+        "speed_kmh": 20.0,
+        "ttc_basic": float("nan"),
+        "ttc_ext": 5.0,
+        "risk_class": 0,
+        "confidence": 0.9,
+    }
+
+    assert sanitize_telemetry_data(row) is None
 
 
 def test_detect_anomalies_empty_buffer():

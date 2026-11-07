@@ -111,7 +111,7 @@ def run_checks() -> None:
     print("=" * 60)
 
     # 1. Pytest
-    print("\n[1/3] Running Pytest Unit Tests...")
+    print("\n[1/4] Running Pytest Unit Tests...")
     res_pytest = subprocess.run([sys.executable, "-m", "pytest", "-q"])
     if res_pytest.returncode != 0:
         print("[FAIL] Pytest failed.")
@@ -119,7 +119,7 @@ def run_checks() -> None:
     print("[PASS] Unit tests passed.")
 
     # 2. Protocol Contract Test
-    print("\n[2/3] Checking 7-Field Telemetry Contract...")
+    print("\n[2/4] Checking 7-Field Telemetry Contract...")
     protocol_script = ROOT_DIR / "validation" / "protocol_contract_test.py"
     res_proto = subprocess.run([sys.executable, str(protocol_script)])
     if res_proto.returncode != 0:
@@ -127,7 +127,7 @@ def run_checks() -> None:
         sys.exit(res_proto.returncode)
 
     # 3. Pin Validator
-    print("\n[3/3] Validating Pin Mapping Consistency...")
+    print("\n[3/4] Validating Pin Mapping Consistency...")
     pin_script = ROOT_DIR / "validation" / "pin_validator.py"
     res_pins = subprocess.run([sys.executable, str(pin_script)])
     if res_pins.returncode == 1:
@@ -135,6 +135,23 @@ def run_checks() -> None:
     elif res_pins.returncode != 0:
         print("[FAIL] Pin mapping validation failed.")
         sys.exit(res_pins.returncode)
+
+    print("\n[4/4] Running Flake8...")
+    res_lint = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "flake8",
+            "src",
+            "ml",
+            "validation",
+            "bridge",
+            "tests",
+        ]
+    )
+    if res_lint.returncode != 0:
+        print("[FAIL] Flake8 failed.")
+        sys.exit(res_lint.returncode)
 
     print("\nVerification suite completed.")
 

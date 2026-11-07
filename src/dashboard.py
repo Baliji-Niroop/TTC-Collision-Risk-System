@@ -41,6 +41,7 @@ try:
     from logger import get_logger
     from validators import validate_csv_line
     from alerts import check_and_alert
+    from risk_policy import resolve_dashboard_risk
     from telemetry_schema import parse_packet
 except ImportError as e:
     # Fallback if modules not found
@@ -82,6 +83,17 @@ except ImportError as e:
 
     def parse_packet(_line):
         return None
+
+    def resolve_dashboard_risk(
+        predicted_risk, ttc_seconds, model_available, warning_threshold_s, critical_threshold_s
+    ):
+        if model_available:
+            return int(predicted_risk)
+        if ttc_seconds <= critical_threshold_s:
+            return 2
+        if ttc_seconds <= warning_threshold_s:
+            return 1
+        return 0
 
 
 # Logging
@@ -619,8 +631,10 @@ if missing_fields:
 
 # --- Process: classify risk, update session stats ---
 
-risk = ml_predict(row)
 ttc_b = row["ttc_basic"]
+risk = resolve_dashboard_risk(
+    ml_predict(row), ttc_b, model is not None, thresh_warn, thresh_crit
+)
 
 # Update latency display in sidebar
 _t_pipeline_ms = (time.perf_counter() - _t_fetch_start) * 1000
@@ -630,18 +644,13 @@ _latency_placeholder.markdown(f"**Pipeline latency:** {_t_pipeline_ms:.1f} ms")
 if row.get("anomaly_flag", False):
     logger.warning(f"Anomaly detected in telemetry: {row}")
 
-# Check for alerts
+# Alerts and all UI state use the same resolved risk level.
 try:
     check_and_alert(risk, row)
 except TypeError as e:
     logger.error(f"Invalid data type in alert system: {e}")
 except Exception as e:
     logger.error(f"Unexpected error in alert system: {e}", exc_info=True)
-
-# When the ML model is not available, apply the user-configured thresholds
-# for the physics-based fallback classifier.
-if model is None:
-    risk = 0 if ttc_b > thresh_warn else (1 if ttc_b > thresh_crit else 2)
 
 # Update running session statistics
 if ttc_b < st.session_state.min_ttc:

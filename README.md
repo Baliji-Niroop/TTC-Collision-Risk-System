@@ -163,6 +163,15 @@ See the [project journey](docs/project-journey.md) for implementation status and
 
 The presence of firmware and wiring instructions does not mean the system has been assembled or road-tested.
 
+### Verification scope
+
+`python src/main.py --check` runs the Python tests, telemetry protocol contract,
+firmware pin-map validator, and Flake8. These checks verify the source-level
+prototype; ESP32 compilation and real sensor or road validation remain separate
+hardware steps. The dashboard resolves one final risk state before it renders,
+logs, or dispatches an alert, and telemetry rows with non-finite numeric values
+are rejected at the validation boundary.
+
 ---
 
 ## Limitations and Future Work
